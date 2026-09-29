@@ -12,7 +12,7 @@ from ..constants import (
     MOCK_DICTIONARY,
 )
 from ..schemas import TranslateRequest, TranslateResponse
-from ..services.nvidia import translate_custom_language, translate_values
+from ..services.nvidia import recognize_custom_language, translate_values
 
 router = APIRouter()
 logger = logging.getLogger('localizer')
@@ -44,9 +44,9 @@ async def translate(
     """Translate dictionary values while preserving every original key.
 
     A custom ``language_name`` takes precedence over ``language_code``. Predefined
-    dropdown languages are trusted. A manually entered language name is validated
-    by the same NVIDIA request that performs the translation. Minor spelling errors
-    are accepted when the intended real language is unambiguous.
+    dropdown languages are trusted. A manually entered language name is first
+    recognized in a dedicated NVIDIA request. Only after successful recognition is
+    a second request used to translate into the canonical language and code.
 
     :param request: Source dictionary and target-language selection supplied by the client.
     :param settings: Runtime NVIDIA and retry configuration injected by FastAPI.
@@ -71,8 +71,8 @@ async def translate(
 
     try:
         if custom_language:
-            result = await translate_custom_language(values, language, settings)
-            if not result.language_recognized:
+            recognition = await recognize_custom_language(language, settings)
+            if not recognition.language_recognized:
                 logger.info('Custom language was not recognized: %r', language)
                 return TranslateResponse(
                     dictionary=request.dictionary,
@@ -81,14 +81,18 @@ async def translate(
                     fallback=False,
                     error=LANGUAGE_NOT_RECOGNIZED_MESSAGE,
                 )
+
             logger.info(
                 'Custom language recognized: input=%r normalized=%r code=%r',
                 language,
-                result.language,
-                result.language_code,
+                recognition.language,
+                recognition.language_code,
             )
-            translated = result.translations
-            response_language = result.language or language
+            target_language = (
+                f'{recognition.language} (language code: {recognition.language_code})'
+            )
+            translated = await translate_values(values, target_language, settings)
+            response_language = recognition.language or language
         else:
             translated = await translate_values(values, language, settings)
             response_language = language
