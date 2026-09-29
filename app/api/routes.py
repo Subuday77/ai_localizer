@@ -81,6 +81,12 @@ async def translate(
                     fallback=False,
                     error=LANGUAGE_NOT_RECOGNIZED_MESSAGE,
                 )
+            logger.info(
+                'Custom language recognized: input=%r normalized=%r code=%r',
+                language,
+                result.language,
+                result.language_code,
+            )
             translated = result.translations
             response_language = result.language or language
         else:
