@@ -88,6 +88,9 @@ def _validate_translations(translations, originals: list[str]) -> list[str]:
         if sorted(PLACEHOLDER.findall(original)) != sorted(PLACEHOLDER.findall(translated)):
             raise ValueError('Placeholder mismatch')
 
+    if translations == originals:
+        raise ValueError('Model returned the original source strings unchanged')
+
     return translations
 
 
