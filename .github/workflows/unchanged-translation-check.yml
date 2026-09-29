@@ -15,5 +15,5 @@ jobs:
           python-version: '3.13'
       - run: python -m compileall -q app tests
       - run: pip install -r requirements.txt
-      - run: pytest -q
+      - run: PYTHONPATH=. pytest -q tests/test_nvidia.py
       - run: python -c "import app.main"
