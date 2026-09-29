@@ -21,7 +21,11 @@ SYSTEM_PROMPT = (
 )
 
 USER_PROMPT = (
-    'Translate each string in the JSON array into {language}. '
+    'Translate each string in the JSON array strictly into {language}. '
+    'Use exactly the requested target language and do not substitute Russian, English, '
+    'a related language, or another more common language. '
+    'If you cannot reliably translate into exactly the requested target language, '
+    'return the original input array unchanged. '
     'Return ONLY a JSON array of translated strings in EXACTLY the same order and count. '
     'Preserve placeholders like {{name}}, HTML tags, URLs, numbers and punctuation as appropriate. '
     'If translated text contains a double quote, escape it correctly for JSON as \\". '
