@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.services.nvidia import parse_translation
+from app.services.nvidia import build_translation_prompt, parse_translation
 
 
 def test_parse_translation_rejects_fully_unchanged_output() -> None:
@@ -28,3 +28,16 @@ def test_parse_translation_allows_partially_unchanged_output() -> None:
     result = parse_translation('["Bienvenido", "Home", "Contacto"]', originals)
 
     assert result == ['Bienvenido', 'Home', 'Contacto']
+
+
+def test_translation_prompt_requires_exact_target_language() -> None:
+    """Require the model to avoid substituting a different language.
+
+    :return: None.
+    :raises AssertionError: If the strict target-language fallback instruction disappears.
+    """
+    prompt = build_translation_prompt(['Welcome', 'Home'], 'Chukchi (language code: ckt)')
+
+    assert 'strictly into Chukchi (language code: ckt)' in prompt
+    assert 'do not substitute Russian, English' in prompt
+    assert 'return the original input array unchanged' in prompt
