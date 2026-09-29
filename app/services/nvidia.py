@@ -266,7 +266,7 @@ async def _translate(
                     max_tokens = min(max_tokens * 2, settings.nvidia_max_tokens_cap)
                     raise ValueError('Truncated response (finish_reason=length)')
                 if reason not in ('stop', None):
-                    raise ValueErropˆf'Unexpected finish_reason={reason}')
+                    raise ValueError(f'Unexpected finish_reason={reason}')
 
                 raw_content = choice['message']['content']
                 if not isinstance(raw_content, str):
