@@ -3,6 +3,13 @@
 from pydantic import BaseModel, Field, model_validator
 
 
+class PageViewRequest(BaseModel):
+    """Minimal anonymous page-view event sent by the frontend."""
+
+    path: str = Field(min_length=1, max_length=500)
+    referrer: str | None = Field(default=None, max_length=500)
+
+
 class TranslateRequest(BaseModel):
     """English source strings and a target language code and/or native name."""
 
