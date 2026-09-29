@@ -20,7 +20,7 @@ from ..constants import (
 
 logger = logging.getLogger('localizer')
 PLACEHOLDER = re.compile(r'\{[A-Za-z_][A-Za-z_0-9]*\}')
-LANGUAGE_CODE = re.compile(r'^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*
+LANGUAGE_CODE = re.compile(r'^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$')
 
 
 class InvalidModelJSONError(ValueError):
