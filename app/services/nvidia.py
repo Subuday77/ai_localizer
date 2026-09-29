@@ -5,11 +5,18 @@ import json
 import logging
 import random
 import re
+from dataclasses import dataclass
 
 import httpx
 
 from ..config import Settings
-from ..constants import JSON_RETRY_PROMPT, SYSTEM_PROMPT, USER_PROMPT
+from ..constants import (
+    CUSTOM_LANGUAGE_JSON_RETRY_PROMPT,
+    CUSTOM_LANGUAGE_USER_PROMPT,
+    JSON_RETRY_PROMPT,
+    SYSTEM_PROMPT,
+    USER_PROMPT,
+)
 
 logger = logging.getLogger('localizer')
 PLACEHOLDER = re.compile(r'\{[A-Za-z_][A-Za-z_0-9]*\}')
@@ -19,18 +26,21 @@ class InvalidModelJSONError(ValueError):
     """Raised when NVIDIA returns text that cannot be parsed as JSON."""
 
 
-def parse_translation(content: str, originals: list[str]) -> list[str]:
-    """Parse and validate an ordered translated JSON string array.
+@dataclass(frozen=True)
+class CustomLanguageTranslation:
+    """Validated result for a manually entered target-language name."""
 
-    Markdown JSON fences are tolerated because some models add them despite the
-    prompt. The parsed array must have exactly the same number of strings as the
-    source array, and source placeholders must be preserved in each item.
+    language_recognized: bool
+    language: str | None
+    translations: list[str]
 
-    :param content: Raw text returned in the model's ``message.content`` field.
-    :param originals: Ordered source strings sent to the model.
-    :return: Validated translated strings in the same order as ``originals``.
-    :raises InvalidModelJSONError: If the model output is not valid JSON.
-    :raises ValueError: If the JSON has an unsafe or unexpected structure.
+
+def _strip_markdown_json_fence(content: str) -> str:
+    """Remove a complete Markdown code fence around model JSON when present.
+
+    :param content: Raw model text.
+    :return: Model text without a surrounding Markdown code fence.
+    :raises ValueError: If a Markdown fence starts but is incomplete.
     """
     content = content.strip()
     if content.startswith('```'):
@@ -38,48 +48,125 @@ def parse_translation(content: str, originals: list[str]) -> list[str]:
         if len(lines) < 3 or not lines[-1].strip().startswith('```'):
             raise ValueError('Incomplete Markdown JSON fence')
         content = '\n'.join(lines[1:-1]).strip()
+    return content
 
+
+def _load_model_json(content: str):
+    """Parse JSON returned by the model after tolerating a complete code fence.
+
+    :param content: Raw text returned in ``message.content``.
+    :return: Parsed JSON value.
+    :raises InvalidModelJSONError: If the model output is not valid JSON.
+    :raises ValueError: If a surrounding Markdown fence is incomplete.
+    """
+    content = _strip_markdown_json_fence(content)
     try:
-        parsed = json.loads(content)
+        return json.loads(content)
     except json.JSONDecodeError as exc:
         raise InvalidModelJSONError('Model returned invalid JSON') from exc
 
+
+def _validate_translations(translations, originals: list[str]) -> list[str]:
+    """Validate translation count, item types and placeholder preservation.
+
+    :param translations: Parsed candidate translation array.
+    :param originals: Ordered source strings sent to the model.
+    :return: Validated translated strings in source order.
+    :raises ValueError: If the structure, count or placeholders are invalid.
+    """
     if (
-        not isinstance(parsed, list)
-        or len(parsed) != len(originals)
-        or any(not isinstance(item, str) for item in parsed)
+        not isinstance(translations, list)
+        or len(translations) != len(originals)
+        or any(not isinstance(item, str) for item in translations)
     ):
         raise ValueError(f'Expected an array of exactly {len(originals)} strings')
 
-    for original, translated in zip(originals, parsed):
+    for original, translated in zip(originals, translations):
         if sorted(PLACEHOLDER.findall(original)) != sorted(PLACEHOLDER.findall(translated)):
             raise ValueError('Placeholder mismatch')
 
-    return parsed
+    return translations
+
+
+def parse_translation(content: str, originals: list[str]) -> list[str]:
+    """Parse and validate an ordered translated JSON string array.
+
+    :param content: Raw text returned in the model's ``message.content`` field.
+    :param originals: Ordered source strings sent to the model.
+    :return: Validated translated strings in the same order as ``originals``.
+    :raises InvalidModelJSONError: If the model output is not valid JSON.
+    :raises ValueError: If the JSON has an unsafe or unexpected structure.
+    """
+    return _validate_translations(_load_model_json(content), originals)
+
+
+def parse_custom_language_translation(
+    content: str,
+    originals: list[str],
+) -> CustomLanguageTranslation:
+    """Parse a combined language-recognition and translation result.
+
+    :param content: Raw text returned in the model's ``message.content`` field.
+    :param originals: Ordered source strings sent to the model.
+    :return: Validated recognition result with normalized language and translations.
+    :raises InvalidModelJSONError: If the model output is not valid JSON.
+    :raises ValueError: If the JSON object has an unsafe or unexpected structure.
+    """
+    parsed = _load_model_json(content)
+    if not isinstance(parsed, dict):
+        raise ValueError('Expected a JSON object for custom-language translation')
+
+    recognized = parsed.get('language_recognized')
+    if not isinstance(recognized, bool):
+        raise ValueError('language_recognized must be a boolean')
+
+    language = parsed.get('language')
+    translations = parsed.get('translations')
+
+    if not recognized:
+        if language is not None or translations != []:
+            raise ValueError('Unrecognized language must return language=null and translations=[]')
+        return CustomLanguageTranslation(
+            language_recognized=False,
+            language=None,
+            translations=[],
+        )
+
+    if not isinstance(language, str) or not language.strip():
+        raise ValueError('Recognized language must include a normalized language name')
+
+    return CustomLanguageTranslation(
+        language_recognized=True,
+        language=language.strip(),
+        translations=_validate_translations(translations, originals),
+    )
 
 
 def build_translation_prompt(
     values: list[str],
     language: str,
     json_retry: bool = False,
+    validate_custom_language: bool = False,
 ) -> str:
-    """Build the user prompt for an initial translation or JSON-correction retry.
-
-    The retry instruction is appended only after a model response failed JSON
-    parsing. It asks the model to keep the requested translations while making
-    the complete JSON payload valid, including escaped internal double quotes.
+    """Build the prompt for translation and optional custom-language validation.
 
     :param values: Ordered source strings that must be translated.
-    :param language: Target language display name, for example ``Deutsch`` or ``עברית``.
-    :param json_retry: Whether to append the stricter invalid-JSON correction instruction.
+    :param language: Target language name supplied by the dropdown or user.
+    :param json_retry: Whether to append a stricter invalid-JSON correction instruction.
+    :param validate_custom_language: Whether the model must validate a manually entered language.
     :return: Fully formatted user prompt ready for the NVIDIA chat-completions request.
     """
-    prompt = USER_PROMPT.format(
+    template = CUSTOM_LANGUAGE_USER_PROMPT if validate_custom_language else USER_PROMPT
+    prompt = template.format(
         language=language,
         values=json.dumps(values, ensure_ascii=False),
     )
     if json_retry:
-        prompt += JSON_RETRY_PROMPT
+        prompt += (
+            CUSTOM_LANGUAGE_JSON_RETRY_PROMPT
+            if validate_custom_language
+            else JSON_RETRY_PROMPT
+        )
     return prompt
 
 
@@ -109,21 +196,19 @@ def build_request_payload(
     }
 
 
-async def translate_values(values: list[str], language: str, settings: Settings) -> list[str]:
-    """Translate ordered values with NVIDIA and validate the returned array.
-
-    Transient failures and malformed responses are retried. A response ending
-    with ``finish_reason == 'length'`` is retried with a larger token budget.
-    After several failures a configured fallback NVIDIA model may be used.
-    Invalid JSON responses are logged as raw model text, truncated to the
-    configured diagnostic limit. After such a parse failure, later attempts add
-    an explicit JSON-validity and internal-quote escaping correction instruction.
-    API keys and request headers are never logged.
+async def _translate(
+    values: list[str],
+    language: str,
+    settings: Settings,
+    validate_custom_language: bool,
+):
+    """Execute NVIDIA translation with retries and optional language recognition.
 
     :param values: Ordered English source strings to translate.
-    :param language: Target language display name, for example ``Deutsch`` or ``עברית``.
+    :param language: Target language label or manually entered language name.
     :param settings: Validated runtime settings, including credentials and retry limits.
-    :return: Translated strings in exactly the same order as ``values``.
+    :param validate_custom_language: Whether model output must include language recognition.
+    :return: A translated string list or ``CustomLanguageTranslation``.
     :raises RuntimeError: If configuration is missing or all translation attempts fail.
     """
     if not settings.nvidia_api_key or settings.nvidia_api_key.startswith('your-'):
@@ -132,7 +217,11 @@ async def translate_values(values: list[str], language: str, settings: Settings)
         raise RuntimeError('NVIDIA_MODEL_ID is not configured')
 
     url = settings.nvidia_base_url.rstrip('/') + '/chat/completions'
-    base_prompt = build_translation_prompt(values, language)
+    base_prompt = build_translation_prompt(
+        values,
+        language,
+        validate_custom_language=validate_custom_language,
+    )
     max_tokens = settings.nvidia_max_tokens
     last_error: Exception = RuntimeError('Translation did not complete')
     json_retry_required = False
@@ -149,7 +238,12 @@ async def translate_values(values: list[str], language: str, settings: Settings)
 
             try:
                 prompt = (
-                    build_translation_prompt(values, language, json_retry=True)
+                    build_translation_prompt(
+                        values,
+                        language,
+                        json_retry=True,
+                        validate_custom_language=validate_custom_language,
+                    )
                     if json_retry_required
                     else base_prompt
                 )
@@ -172,12 +266,14 @@ async def translate_values(values: list[str], language: str, settings: Settings)
                     max_tokens = min(max_tokens * 2, settings.nvidia_max_tokens_cap)
                     raise ValueError('Truncated response (finish_reason=length)')
                 if reason not in ('stop', None):
-                    raise ValueError(f'Unexpected finish_reason={reason}')
+                    raise ValueErrop�f'Unexpected finish_reason={reason}')
 
                 raw_content = choice['message']['content']
                 if not isinstance(raw_content, str):
                     raise ValueError('Response content is not text')
 
+                if validate_custom_language:
+                    return parse_custom_language_translation(raw_content, values)
                 return parse_translation(raw_content, values)
 
             except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
@@ -214,3 +310,41 @@ async def translate_values(values: list[str], language: str, settings: Settings)
                     )
 
     raise RuntimeError(f'NVIDIA translation failed: {type(last_error).__name__}') from last_error
+
+
+async def translate_values(values: list[str], language: str, settings: Settings) -> list[str]:
+    """Translate a trusted predefined target language.
+
+    :param values: Ordered English source strings to translate.
+    :param language: Trusted target language display name from the predefined list.
+    :param settings: Validated runtime settings, including credentials and retry limits.
+    :return: Translated strings in exactly the same order as ``values``.
+    :raises RuntimeError: If configuration is missing or all translation attempts fail.
+    """
+    return await _translate(
+        values,
+        language,
+        settings,
+        validate_custom_language=False,
+    )
+
+
+async def translate_custom_language(
+    values: list[str],
+    language: str,
+    settings: Settings,
+) -> CustomLanguageTranslation:
+    """Validate a manually entered language name and translate in the same request.
+
+    :param values: Ordered English source strings to translate.
+    :param language: Manually entered target-language name.
+    :param settings: Validated runtime settings, including credentials and retry limits.
+    :return: Recognition status, normalized language name and translations.
+    :raises RuntimeError: If configuration is missing or all translation attempts fail.
+    """
+    return await _translate(
+        values,
+        language,
+        settings,
+        validate_custom_language=True,
+    )

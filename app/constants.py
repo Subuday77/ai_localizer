@@ -28,9 +28,34 @@ USER_PROMPT = (
     'Do not add explanations or markdown. Input: {values}'
 )
 
+CUSTOM_LANGUAGE_USER_PROMPT = (
+    'The user manually entered this target-language name: {language}. '
+    'First decide whether it clearly identifies one real human language. '
+    'Minor spelling mistakes are acceptable when the intended language is unambiguous. '
+    'If the name is fictional, meaningless, ambiguous between multiple languages, or you cannot '
+    'confidently identify one real language, treat it as unrecognized. '
+    'If recognized, translate each string in the JSON array into that language. '
+    'Return ONLY one valid JSON object in this exact shape: '
+    '{{"language_recognized": true, "language": "<normalized language name>", '
+    '"translations": ["...", "..."]}}. '
+    'Use the standard self-name/native name for "language" when possible. '
+    'The translations array must contain EXACTLY the same number of strings and preserve the input order. '
+    'Preserve placeholders like {{name}}, HTML tags, URLs, numbers and punctuation as appropriate. '
+    'If translated text contains a double quote, escape it correctly for JSON as \\". '
+    'If the language is not recognized, return exactly: '
+    '{{"language_recognized": false, "language": null, "translations": []}}. '
+    'Do not invent a language and do not add explanations or markdown. Input: {values}'
+)
+
 JSON_RETRY_PROMPT = (
     '\nPrevious response was invalid JSON. Return the same translations, but ensure the JSON '
     'is valid and all internal double quotes are properly escaped.'
 )
 
+CUSTOM_LANGUAGE_JSON_RETRY_PROMPT = (
+    '\nPrevious response was invalid JSON. Return the same language-recognition result and translations, '
+    'but ensure the JSON is valid and all internal double quotes are properly escaped.'
+)
+
 FALLBACK_MESSAGE = 'Translation unavailable; original English strings returned'
+LANGUAGE_NOT_RECOGNIZED_MESSAGE = 'Language not recognized'

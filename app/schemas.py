@@ -23,9 +23,10 @@ class TranslateRequest(BaseModel):
 
 
 class TranslateResponse(BaseModel):
-    """Translated or original strings, with explicit fallback status."""
+    """Translated or original strings, with language and fallback status."""
 
     dictionary: dict[str, str]
     language: str
+    language_recognized: bool | None = True
     fallback: bool
     error: str | None = None

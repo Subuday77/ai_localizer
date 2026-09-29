@@ -6,14 +6,17 @@ import json
 import httpx
 import pytest
 
+from app.api import routes
 from app.config import Settings
 from app.constants import MOCK_DICTIONARY
 from app.main import app
 from app.services import nvidia
 from app.services.nvidia import (
+    CustomLanguageTranslation,
     InvalidModelJSONError,
     build_request_payload,
     build_translation_prompt,
+    parse_custom_language_translation,
     parse_translation,
 )
 
@@ -67,7 +70,9 @@ def test_english_no_api_key():
         '/translate',
         json={'dictionary': MOCK_DICTIONARY, 'language_code': 'en'},
     ).json()
-    assert data['dictionary'] == MOCK_DICTIONARY and not data['fallback']
+    assert data['dictionary'] == MOCK_DICTIONARY
+    assert data['language_recognized'] is True
+    assert not data['fallback']
 
 
 def test_fallback_no_key():
@@ -80,7 +85,24 @@ def test_fallback_no_key():
         '/translate',
         json={'dictionary': MOCK_DICTIONARY, 'language_code': 'de'},
     ).json()
-    assert data['dictionary'] == MOCK_DICTIONARY and data['fallback']
+    assert data['dictionary'] == MOCK_DICTIONARY
+    assert data['language_recognized'] is True
+    assert data['fallback']
+
+
+def test_custom_language_fallback_has_unknown_recognition_state():
+    """Verify technical fallback does not falsely reject a custom language name.
+
+    :return: ``None``; assertions fail if provider failure is reported as an invalid language.
+    """
+    data = request(
+        'POST',
+        '/translate',
+        json={'dictionary': MOCK_DICTIONARY, 'language_name': 'Deutsch'},
+    ).json()
+    assert data['dictionary'] == MOCK_DICTIONARY
+    assert data['language_recognized'] is None
+    assert data['fallback']
 
 
 def test_parse_placeholders():
@@ -100,6 +122,45 @@ def test_invalid_json_uses_specific_exception():
     """
     with pytest.raises(InvalidModelJSONError):
         parse_translation('not-json', ['Hello'])
+
+
+def test_parse_custom_language_recognized():
+    """Verify custom-language parsing accepts a normalized real language.
+
+    :return: ``None``; assertions fail if recognition or normalization is lost.
+    """
+    content = json.dumps(
+        {
+            'language_recognized': True,
+            'language': 'Deutsch',
+            'translations': ['Hallo {name}'],
+        },
+        ensure_ascii=False,
+    )
+    result = parse_custom_language_translation(content, ['Hello {name}'])
+    assert result == CustomLanguageTranslation(
+        language_recognized=True,
+        language='Deutsch',
+        translations=['Hallo {name}'],
+    )
+
+
+def test_parse_custom_language_unrecognized():
+    """Verify custom-language parsing accepts the explicit unrecognized shape.
+
+    :return: ``None``; assertions fail if unknown-language handling is malformed.
+    """
+    content = json.dumps(
+        {
+            'language_recognized': False,
+            'language': None,
+            'translations': [],
+        }
+    )
+    result = parse_custom_language_translation(content, ['Hello'])
+    assert result.language_recognized is False
+    assert result.language is None
+    assert result.translations == []
 
 
 def test_thinking_is_disabled_in_payload():
@@ -124,6 +185,22 @@ def test_translation_prompt_requires_json_quote_escaping():
     prompt = build_translation_prompt(['Email address'], 'עברית')
     assert 'escape it correctly for JSON as \\"' in prompt
     assert 'Previous response was invalid JSON' not in prompt
+
+
+def test_custom_language_prompt_validates_and_allows_typos():
+    """Verify manually entered languages are validated in the translation prompt.
+
+    :return: ``None``; assertions fail if recognition rules disappear from the prompt.
+    """
+    prompt = build_translation_prompt(
+        ['Welcome'],
+        'Deusch',
+        validate_custom_language=True,
+    )
+    assert 'real human language' in prompt
+    assert 'Minor spelling mistakes are acceptable' in prompt
+    assert '"language_recognized": true' in prompt
+    assert '"language_recognized": false' in prompt
 
 
 def test_json_retry_adds_stricter_instruction(monkeypatch):
@@ -243,3 +320,71 @@ def test_json_retry_adds_stricter_instruction(monkeypatch):
     assert 'Previous response was invalid JSON' in second_prompt
     assert 'ensure the JSON is valid' in second_prompt
     assert 'all internal double quotes are properly escaped' in second_prompt
+
+
+def test_custom_language_endpoint_rejects_unknown_without_fallback(monkeypatch):
+    """Verify an unrecognized custom language returns English without technical fallback.
+
+    :param monkeypatch: Pytest fixture used to replace the NVIDIA translation call.
+    :return: ``None``; assertions fail if unknown-language semantics are incorrect.
+    """
+    async def fake_translate(values, language, settings):
+        """Return a deterministic unrecognized-language result.
+
+        :param values: Source values supplied by the route.
+        :param language: User-entered language name.
+        :param settings: Injected runtime settings.
+        :return: Explicit unrecognized-language result.
+        """
+        return CustomLanguageTranslation(False, None, [])
+
+    monkeypatch.setattr(routes, 'translate_custom_language', fake_translate)
+
+    data = request(
+        'POST',
+        '/translate',
+        json={'dictionary': MOCK_DICTIONARY, 'language_name': 'Krokozyabrian'},
+    ).json()
+
+    assert data['dictionary'] == MOCK_DICTIONARY
+    assert data['language'] == 'Krokozyabrian'
+    assert data['language_recognized'] is False
+    assert data['fallback'] is False
+    assert data['error'] == 'Language not recognized'
+
+
+def test_custom_language_endpoint_uses_normalized_name(monkeypatch):
+    """Verify a recognizable typo may be normalized by the model in one request.
+
+    :param monkeypatch: Pytest fixture used to replace the NVIDIA translation call.
+    :return: ``None``; assertions fail if normalized language names are discarded.
+    """
+    translated = {key: f'DE:{value}' for key, value in MOCK_DICTIONARY.items()}
+
+    async def fake_translate(values, language, settings):
+        """Return a deterministic recognized-language result.
+
+        :param values: Source values supplied by the route.
+        :param language: User-entered language name.
+        :param settings: Injected runtime settings.
+        :return: Recognized result normalized to ``Deutsch``.
+        """
+        return CustomLanguageTranslation(
+            True,
+            'Deutsch',
+            [f'DE:{value}' for value in values],
+        )
+
+    monkeypatch.setattr(routes, 'translate_custom_language', fake_translate)
+
+    data = request(
+        'POST',
+        '/translate',
+        json={'dictionary': MOCK_DICTIONARY, 'language_name': 'Deusch'},
+    ).json()
+
+    assert data['dictionary'] == translated
+    assert data['language'] == 'Deutsch'
+    assert data['language_recognized'] is True
+    assert data['fallback'] is False
+    assert data['error'] is None
