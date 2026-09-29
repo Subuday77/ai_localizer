@@ -29,6 +29,14 @@ class InvalidModelJSONError(ValueError):
     """Raised when NVIDIA returns text that cannot be parsed as JSON."""
 
 
+class UnchangedTranslationError(ValueError):
+    """Raised when the model explicitly returns the original source strings unchanged."""
+
+
+class UnsupportedTargetLanguageError(RuntimeError):
+    """Raised when repeated completed model responses decline the requested language."""
+
+
 @dataclass(frozen=True)
 class CustomLanguageRecognition:
     """Validated recognition result for a manually entered target-language name."""
@@ -75,6 +83,7 @@ def _validate_translations(translations, originals: list[str]) -> list[str]:
     :param translations: Parsed candidate translation array.
     :param originals: Ordered source strings sent to the model.
     :return: Validated translated strings in source order.
+    :raises UnchangedTranslationError: If every returned string is unchanged.
     :raises ValueError: If the structure, count or placeholders are invalid.
     """
     if (
@@ -89,7 +98,7 @@ def _validate_translations(translations, originals: list[str]) -> list[str]:
             raise ValueError('Placeholder mismatch')
 
     if translations == originals:
-        raise ValueError('Model returned the original source strings unchanged')
+        raise UnchangedTranslationError('Model returned the original source strings unchanged')
 
     return translations
 
@@ -188,6 +197,24 @@ def build_language_recognition_prompt(
     return prompt
 
 
+def _is_unsupported_translation(
+    operation: str,
+    unchanged_response_count: int,
+    other_model_response_failure_count: int,
+) -> bool:
+    """Decide whether retries indicate a recognized but unsupported target language.
+
+    :param operation: Current NVIDIA operation name.
+    :param unchanged_response_count: Completed model responses that returned the source unchanged.
+    :param other_model_response_failure_count: Completed model responses that failed for another reason.
+    :return: True when the model repeatedly declined only the requested translation.
+    """
+    return (
+        operation == 'translation'
+        and unchanged_response_count >= 2
+        and other_model_response_failure_count == 0
+    )
+
 def build_request_payload(
     model: str,
     prompt: str,
@@ -238,6 +265,8 @@ async def _request_with_retries(
     max_tokens = settings.nvidia_max_tokens
     last_error: Exception = RuntimeError(f'{operation} did not complete')
     json_retry_required = False
+    unchanged_response_count = 0
+    other_model_response_failure_count = 0
 
     async with httpx.AsyncClient(timeout=settings.nvidia_timeout_seconds) as client:
         for attempt in range(settings.nvidia_retries + 1):
@@ -280,6 +309,11 @@ async def _request_with_retries(
             except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
                 last_error = exc
 
+                if isinstance(exc, UnchangedTranslationError):
+                    unchanged_response_count += 1
+                elif raw_content is not None:
+                    other_model_response_failure_count += 1
+
                 if isinstance(exc, InvalidModelJSONError):
                     json_retry_required = True
 
@@ -312,6 +346,15 @@ async def _request_with_retries(
                         delay + random.uniform(0, settings.nvidia_retry_jitter_seconds)
                     )
 
+    if _is_unsupported_translation(
+        operation,
+        unchanged_response_count,
+        other_model_response_failure_count,
+    ):
+        raise UnsupportedTargetLanguageError(
+            f'{operation} unsupported after {unchanged_response_count} unchanged responses'
+        ) from last_error
+
     raise RuntimeError(f'NVIDIA {operation} failed: {type(last_error).__name__}') from last_error
 
 
@@ -326,6 +369,7 @@ async def translate_values(
     :param language: Trusted target-language name and optional standard code.
     :param settings: Validated runtime settings, including credentials and retry limits.
     :return: Translated strings in exactly the same order as values.
+    :raises UnsupportedTargetLanguageError: If repeated completed responses decline the target language.
     :raises RuntimeError: If configuration is missing or all translation attempts fail.
     """
     return await _request_with_retries(
