@@ -2,7 +2,12 @@
 
 import pytest
 
-from app.services.nvidia import build_translation_prompt, parse_translation
+from app.services.nvidia import (
+    UnchangedTranslationError,
+    _is_unsupported_translation,
+    build_translation_prompt,
+    parse_translation,
+)
 
 
 def test_parse_translation_rejects_fully_unchanged_output() -> None:
@@ -13,7 +18,7 @@ def test_parse_translation_rejects_fully_unchanged_output() -> None:
     """
     originals = ['Welcome', 'Home', 'Contact']
 
-    with pytest.raises(ValueError, match='original source strings unchanged'):
+    with pytest.raises(UnchangedTranslationError, match='original source strings unchanged'):
         parse_translation('["Welcome", "Home", "Contact"]', originals)
 
 
@@ -41,3 +46,16 @@ def test_translation_prompt_requires_exact_target_language() -> None:
     assert 'strictly into Chukchi (language code: ckt)' in prompt
     assert 'do not substitute Russian, English' in prompt
     assert 'return the original input array unchanged' in prompt
+
+
+def test_unsupported_translation_requires_repeated_clean_declines() -> None:
+    """Classify unsupported languages only after repeated unchanged translation responses.
+
+    :return: None.
+    :raises AssertionError: If technical or malformed failures are misclassified as unsupported.
+    """
+    assert _is_unsupported_translation('translation', 2, 0) is True
+    assert _is_unsupported_translation('translation', 5, 0) is True
+    assert _is_unsupported_translation('translation', 1, 0) is False
+    assert _is_unsupported_translation('translation', 5, 1) is False
+    assert _is_unsupported_translation('language recognition', 5, 0) is False
