@@ -8,11 +8,16 @@ from ..config import Settings, get_settings
 from ..constants import (
     FALLBACK_MESSAGE,
     LANGUAGE_NOT_RECOGNIZED_MESSAGE,
+    UNSUPPORTED_LANGUAGE_MESSAGE,
     LANGUAGES,
     MOCK_DICTIONARY,
 )
 from ..schemas import TranslateRequest, TranslateResponse
-from ..services.nvidia import recognize_custom_language, translate_values
+from ..services.nvidia import (
+    UnsupportedTargetLanguageError,
+    recognize_custom_language,
+    translate_values,
+)
 
 router = APIRouter()
 logger = logging.getLogger('localizer')
@@ -68,6 +73,8 @@ async def translate(
 
     keys = list(request.dictionary.keys())
     values = list(request.dictionary.values())
+    response_language = language
+    language_recognized_state: bool | None = True if not custom_language else None
 
     try:
         if custom_language:
@@ -88,11 +95,12 @@ async def translate(
                 recognition.language,
                 recognition.language_code,
             )
+            response_language = recognition.language or language
+            language_recognized_state = True
             target_language = (
                 f'{recognition.language} (language code: {recognition.language_code})'
             )
             translated = await translate_values(values, target_language, settings)
-            response_language = recognition.language or language
         else:
             translated = await translate_values(values, language, settings)
             response_language = language
@@ -103,12 +111,26 @@ async def translate(
             language_recognized=True,
             fallback=False,
         )
-    except Exception as exc:
-        logger.error('English fallback for language=%s: %s', language, exc)
+    except UnsupportedTargetLanguageError as exc:
+        logger.warning(
+            'Unsupported target language fallback: input=%r normalized=%r error=%s',
+            language,
+            response_language,
+            exc,
+        )
         return TranslateResponse(
             dictionary=request.dictionary,
-            language=language,
-            language_recognized=None if custom_language else True,
+            language=response_language,
+            language_recognized=language_recognized_state,
+            fallback=True,
+            error=UNSUPPORTED_LANGUAGE_MESSAGE,
+        )
+    except Exception as exc:
+        logger.error('English fallback for language=%s: %s', response_language, exc)
+        return TranslateResponse(
+            dictionary=request.dictionary,
+            language=response_language,
+            language_recognized=language_recognized_state,
             fallback=True,
             error=FALLBACK_MESSAGE,
         )

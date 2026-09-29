@@ -67,4 +67,7 @@ CUSTOM_LANGUAGE_RECOGNITION_JSON_RETRY_PROMPT = (
 )
 
 FALLBACK_MESSAGE = 'Translation unavailable; original English strings returned'
+UNSUPPORTED_LANGUAGE_MESSAGE = (
+    'This language is recognized, but reliable translation is not currently supported'
+)
 LANGUAGE_NOT_RECOGNIZED_MESSAGE = 'Language not recognized'
