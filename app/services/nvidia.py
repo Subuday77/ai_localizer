@@ -254,6 +254,7 @@ async def _request_with_retries(
     :param parser: Callable that parses and validates the model raw text response.
     :param operation: Short operation name used in logs and terminal errors.
     :return: Parsed and validated model result.
+    :raises UnsupportedTargetLanguageError: If repeated translation responses return the source unchanged.
     :raises RuntimeError: If configuration is missing or all attempts fail.
     """
     if not settings.nvidia_api_key or settings.nvidia_api_key.startswith('your-'):
