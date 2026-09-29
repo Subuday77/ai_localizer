@@ -20,4 +20,5 @@ if settings.cors_origins:
         allow_headers=['*'],
     )
 
+
 app.include_router(router)
