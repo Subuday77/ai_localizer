@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     nvidia_retry_jitter_seconds: float = Field(default=0.3, ge=0)
     nvidia_enable_thinking: bool = False
     nvidia_raw_response_log_chars: int = Field(default=4000, ge=200, le=50000)
+    cors_origins: list[str] = Field(default_factory=list)
     host: str = '127.0.0.1'
     port: int = 8080
 
