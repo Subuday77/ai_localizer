@@ -1,6 +1,7 @@
 """Tests for NVIDIA response validation."""
 
 import asyncio
+import json
 import logging
 
 import pytest
@@ -197,16 +198,32 @@ def test_repetition_retry_prompt_starts_over_without_continuing() -> None:
     assert 'Do not repeat the same word or phrase multiple times' in prompt
 
 
-def test_repetition_loop_keeps_token_limit_and_switches_fallback_early(monkeypatch) -> None:
-    """Keep the token cap after degeneration and switch models after two primary loops.
+def test_repetition_loop_splits_only_problematic_batches(monkeypatch) -> None:
+    """Recursively split only batches that loop and use fallback only at one-item depth.
 
     :param monkeypatch: Pytest fixture used to replace NVIDIA HTTP and sleep behavior.
     :return: None.
-    :raises AssertionError: If loop recovery grows tokens or delays fallback switching.
+    :raises AssertionError: If adaptive splitting changes order or overuses the fallback model.
     """
     payloads: list[dict] = []
     loop_content = '["' + ' '.join(['אַזוי ווייטער'] * 12) + '"]'
     responses = [
+        {
+            'choices': [
+                {
+                    'finish_reason': 'length',
+                    'message': {'content': loop_content},
+                }
+            ]
+        },
+        {
+            'choices': [
+                {
+                    'finish_reason': 'stop',
+                    'message': {'content': '["TA", "TB"]'},
+                }
+            ]
+        },
         {
             'choices': [
                 {
@@ -227,14 +244,22 @@ def test_repetition_loop_keeps_token_limit_and_switches_fallback_early(monkeypat
             'choices': [
                 {
                     'finish_reason': 'stop',
-                    'message': {'content': '["ברוכים הבאים"]'},
+                    'message': {'content': '["TC"]'},
+                }
+            ]
+        },
+        {
+            'choices': [
+                {
+                    'finish_reason': 'stop',
+                    'message': {'content': '["TD"]'},
                 }
             ]
         },
     ]
 
     class FakeResponse:
-        """Minimal successful HTTP response wrapper used by the loop-recovery test."""
+        """Minimal successful HTTP response wrapper used by the split-recovery test."""
 
         def __init__(self, body: dict):
             """Store a prepared NVIDIA-like response body.
@@ -305,6 +330,16 @@ def test_repetition_loop_keeps_token_limit_and_switches_fallback_early(monkeypat
         """
         return None
 
+    def input_values(payload: dict) -> list[str]:
+        """Extract the source array from a captured translation prompt.
+
+        :param payload: Captured NVIDIA request payload.
+        :return: Parsed source strings included in the prompt.
+        """
+        prompt = payload['messages'][1]['content']
+        raw_values = prompt.split('Input: ', 1)[1].split('\nPrevious response', 1)[0]
+        return json.loads(raw_values)
+
     monkeypatch.setattr(nvidia.httpx, 'AsyncClient', FakeClient)
     monkeypatch.setattr(nvidia.asyncio, 'sleep', no_sleep)
 
@@ -316,19 +351,36 @@ def test_repetition_loop_keeps_token_limit_and_switches_fallback_early(monkeypat
         nvidia_retry_jitter_seconds=0,
     )
     result = asyncio.run(
-        nvidia.translate_values(['Welcome'], 'Yiddish (language code: yi)', settings)
+        nvidia.translate_values(
+            ['A', 'B', 'C', 'D'],
+            'Yiddish (language code: yi)',
+            settings,
+        )
     )
 
-    assert result == ['ברוכים הבאים']
+    assert result == ['TA', 'TB', 'TC', 'TD']
+    assert [input_values(payload) for payload in payloads] == [
+        ['A', 'B', 'C', 'D'],
+        ['A', 'B'],
+        ['C', 'D'],
+        ['C'],
+        ['C'],
+        ['D'],
+    ]
     assert [payload['model'] for payload in payloads] == [
         'primary-model',
         'primary-model',
+        'primary-model',
+        'primary-model',
         'fallback-model',
+        'primary-model',
     ]
-    assert [payload['max_tokens'] for payload in payloads] == [2048, 2048, 2048]
+    assert [payload['max_tokens'] for payload in payloads] == [2048] * 6
     assert 'Previous response entered a repetition loop' not in payloads[0]['messages'][1]['content']
-    assert 'Previous response entered a repetition loop' in payloads[1]['messages'][1]['content']
-    assert 'Previous response entered a repetition loop' in payloads[2]['messages'][1]['content']
+    assert all(
+        'Previous response entered a repetition loop' in payload['messages'][1]['content']
+        for payload in payloads[1:]
+    )
 
 
 def test_normal_truncation_still_increases_token_limit(monkeypatch) -> None:

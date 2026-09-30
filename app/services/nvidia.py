@@ -287,19 +287,34 @@ def build_request_payload(
     }
 
 
+def _fallback_model_available(settings: Settings) -> bool:
+    """Return whether a usable fallback NVIDIA model is configured.
+
+    :param settings: Validated runtime NVIDIA settings.
+    :return: True when a non-placeholder fallback model identifier is available.
+    """
+    return bool(
+        settings.nvidia_fallback_model_id
+        and not settings.nvidia_fallback_model_id.startswith('your-')
+    )
+
+
 async def _request_with_retries(
     settings: Settings,
-    prompt_builder: Callable[[bool, bool], str],
+    prompt_builder: Callable[[bool], str],
     parser: Callable[[str], T],
     operation: str,
+    force_fallback_model: bool = False,
 ) -> T:
     """Run one NVIDIA operation with validation, retries and fallback-model switching.
 
     :param settings: Validated runtime settings, including credentials and retry limits.
-    :param prompt_builder: Callable receiving JSON-retry and repetition-retry flags.
+    :param prompt_builder: Callable that builds the prompt from the JSON-retry flag.
     :param parser: Callable that parses and validates the model raw text response.
     :param operation: Short operation name used in logs and terminal errors.
+    :param force_fallback_model: Whether every attempt should use the configured fallback model.
     :return: Parsed and validated model result.
+    :raises RepetitionLoopError: If a translation response degenerates into repeated text.
     :raises UnsupportedTargetLanguageError: If repeated translation responses return the source unchanged.
     :raises RuntimeError: If configuration is missing or all attempts fail.
     """
@@ -312,20 +327,15 @@ async def _request_with_retries(
     max_tokens = settings.nvidia_max_tokens
     last_error: Exception = RuntimeError(f'{operation} did not complete')
     json_retry_required = False
-    repetition_retry_required = False
-    primary_repetition_count = 0
     unchanged_response_count = 0
     other_model_response_failure_count = 0
 
     async with httpx.AsyncClient(timeout=settings.nvidia_timeout_seconds) as client:
         for attempt in range(settings.nvidia_retries + 1):
-            fallback_available = (
-                settings.nvidia_fallback_model_id
-                and not settings.nvidia_fallback_model_id.startswith('your-')
-            )
+            fallback_available = _fallback_model_available(settings)
             use_fallback = bool(
                 fallback_available
-                and (attempt >= 3 or primary_repetition_count >= 2)
+                and (force_fallback_model or attempt >= 3)
             )
             model = settings.nvidia_fallback_model_id if use_fallback else settings.nvidia_model_id
             raw_content: str | None = None
@@ -333,7 +343,7 @@ async def _request_with_retries(
             try:
                 payload = build_request_payload(
                     model=model,
-                    prompt=prompt_builder(json_retry_required, repetition_retry_required),
+                    prompt=prompt_builder(json_retry_required),
                     max_tokens=max_tokens,
                     enable_thinking=settings.nvidia_enable_thinking,
                 )
@@ -358,34 +368,20 @@ async def _request_with_retries(
                         raw_content[:settings.nvidia_raw_response_log_chars],
                     )
                     if operation == 'translation' and _has_repetition_loop(raw_content):
-                        repetition_retry_required = True
-                        if model == settings.nvidia_model_id:
-                            primary_repetition_count += 1
                         logger.warning(
-                            'NVIDIA repetition loop detected, operation=%s model=%s '
-                            'primary_repetition_count=%d',
+                            'NVIDIA repetition loop detected, operation=%s model=%s',
                             operation,
                             model,
-                            primary_repetition_count,
                         )
                         raise RepetitionLoopError(
                             'Truncated response entered a repetition loop'
                         )
 
-                    repetition_retry_required = False
-                    if model == settings.nvidia_model_id:
-                        primary_repetition_count = 0
                     max_tokens = min(max_tokens * 2, settings.nvidia_max_tokens_cap)
                     raise ValueError('Truncated response (finish_reason=length)')
                 if reason not in ('stop', None):
-                    repetition_retry_required = False
-                    if model == settings.nvidia_model_id:
-                        primary_repetition_count = 0
                     raise ValueError(f'Unexpected finish_reason={reason}')
 
-                repetition_retry_required = False
-                if model == settings.nvidia_model_id:
-                    primary_repetition_count = 0
                 return parser(raw_content)
 
             except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
@@ -416,6 +412,9 @@ async def _request_with_retries(
                     str(exc)[:300],
                 )
 
+                if isinstance(exc, RepetitionLoopError):
+                    raise
+
                 if (
                     isinstance(exc, httpx.HTTPStatusError)
                     and exc.response.status_code in (400, 401, 403, 404, 410)
@@ -440,23 +439,28 @@ async def _request_with_retries(
     raise RuntimeError(f'NVIDIA {operation} failed: {type(last_error).__name__}') from last_error
 
 
-async def translate_values(
+async def _translate_batch(
     values: list[str],
     language: str,
     settings: Settings,
+    repetition_retry: bool = False,
+    force_fallback_model: bool = False,
 ) -> list[str]:
-    """Translate strings into a trusted target language.
+    """Translate one batch without changing its boundaries.
 
-    :param values: Ordered English source strings to translate.
+    :param values: Ordered English strings in this translation batch.
     :param language: Trusted target-language name and optional standard code.
-    :param settings: Validated runtime settings, including credentials and retry limits.
-    :return: Translated strings in exactly the same order as values.
-    :raises UnsupportedTargetLanguageError: If repeated completed responses decline the target language.
-    :raises RuntimeError: If configuration is missing or all translation attempts fail.
+    :param settings: Validated runtime NVIDIA and retry settings.
+    :param repetition_retry: Whether to tell the model a parent batch entered a repetition loop.
+    :param force_fallback_model: Whether to use only the configured fallback model.
+    :return: Translated strings in exactly the same order as the batch.
+    :raises RepetitionLoopError: If this batch degenerates into a repetition loop.
+    :raises UnsupportedTargetLanguageError: If the model repeatedly declines the target language.
+    :raises RuntimeError: If all attempts fail.
     """
     return await _request_with_retries(
         settings=settings,
-        prompt_builder=lambda json_retry, repetition_retry: build_translation_prompt(
+        prompt_builder=lambda json_retry: build_translation_prompt(
             values,
             language,
             json_retry=json_retry,
@@ -464,7 +468,91 @@ async def translate_values(
         ),
         parser=lambda raw: parse_translation(raw, values),
         operation='translation',
+        force_fallback_model=force_fallback_model,
     )
+
+
+async def _translate_values_recursive(
+    values: list[str],
+    language: str,
+    settings: Settings,
+    repetition_retry: bool = False,
+) -> list[str]:
+    """Translate adaptively, splitting only batches that enter repetition loops.
+
+    :param values: Ordered English strings to translate in the current batch.
+    :param language: Trusted target-language name and optional standard code.
+    :param settings: Validated runtime NVIDIA and retry settings.
+    :param repetition_retry: Whether this batch follows a parent repetition-loop failure.
+    :return: Translated strings preserving the original global order.
+    :raises RepetitionLoopError: If a single-item batch loops and no fallback can recover it.
+    :raises UnsupportedTargetLanguageError: If the model repeatedly declines the target language.
+    :raises RuntimeError: If all attempts fail.
+    """
+    try:
+        return await _translate_batch(
+            values,
+            language,
+            settings,
+            repetition_retry=repetition_retry,
+        )
+    except RepetitionLoopError:
+        if len(values) <= 1:
+            if not _fallback_model_available(settings):
+                raise
+
+            logger.warning(
+                'NVIDIA repetition loop on single-item batch; switching to fallback model'
+            )
+            return await _translate_batch(
+                values,
+                language,
+                settings,
+                repetition_retry=True,
+                force_fallback_model=True,
+            )
+
+        midpoint = len(values) // 2
+        left_values = values[:midpoint]
+        right_values = values[midpoint:]
+        logger.warning(
+            'NVIDIA repetition loop recovery: splitting translation batch size=%d into %d+%d',
+            len(values),
+            len(left_values),
+            len(right_values),
+        )
+
+        left_translated = await _translate_values_recursive(
+            left_values,
+            language,
+            settings,
+            repetition_retry=True,
+        )
+        right_translated = await _translate_values_recursive(
+            right_values,
+            language,
+            settings,
+            repetition_retry=True,
+        )
+        return left_translated + right_translated
+
+
+async def translate_values(
+    values: list[str],
+    language: str,
+    settings: Settings,
+) -> list[str]:
+    """Translate strings into a trusted target language with adaptive loop recovery.
+
+    :param values: Ordered English source strings to translate.
+    :param language: Trusted target-language name and optional standard code.
+    :param settings: Validated runtime settings, including credentials and retry limits.
+    :return: Translated strings in exactly the same order as values.
+    :raises RepetitionLoopError: If recursive splitting reaches an unrecoverable single-item loop.
+    :raises UnsupportedTargetLanguageError: If repeated completed responses decline the target language.
+    :raises RuntimeError: If configuration is missing or all translation attempts fail.
+    """
+    return await _translate_values_recursive(values, language, settings)
 
 
 async def recognize_custom_language(
@@ -480,7 +568,7 @@ async def recognize_custom_language(
     """
     return await _request_with_retries(
         settings=settings,
-        prompt_builder=lambda json_retry, repetition_retry: build_language_recognition_prompt(
+        prompt_builder=lambda json_retry: build_language_recognition_prompt(
             language,
             json_retry=json_retry,
         ),
