@@ -294,16 +294,22 @@ async def _request_with_retries(
                 response.raise_for_status()
 
                 choice = response.json()['choices'][0]
+                raw_content = choice['message']['content']
+                if not isinstance(raw_content, str):
+                    raise ValueError('Response content is not text')
+
                 reason = choice.get('finish_reason')
                 if reason == 'length':
+                    logger.warning(
+                        'NVIDIA raw truncated response, operation=%s model=%s: %r',
+                        operation,
+                        model,
+                        raw_content[:settings.nvidia_raw_response_log_chars],
+                    )
                     max_tokens = min(max_tokens * 2, settings.nvidia_max_tokens_cap)
                     raise ValueError('Truncated response (finish_reason=length)')
                 if reason not in ('stop', None):
                     raise ValueError(f'Unexpected finish_reason={reason}')
-
-                raw_content = choice['message']['content']
-                if not isinstance(raw_content, str):
-                    raise ValueError('Response content is not text')
 
                 return parser(raw_content)
 
