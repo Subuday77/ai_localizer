@@ -27,9 +27,18 @@ USER_PROMPT = (
     'If you cannot reliably translate into exactly the requested target language, '
     'return the original input array unchanged. '
     'Return ONLY a JSON array of translated strings in EXACTLY the same order and count. '
+    'Each output item must be a concise translation of exactly one input item. '
+    'Never pad, extend, or repeat text to fill the response. '
     'Preserve placeholders like {{name}}, HTML tags, URLs, numbers and punctuation as appropriate. '
     'If translated text contains a double quote, escape it correctly for JSON as \\". '
     'Do not add explanations or markdown. Input: {values}'
+)
+
+REPETITION_RETRY_PROMPT = (
+    '\nPrevious response entered a repetition loop and was truncated. '
+    'Start the translation again from the beginning; do not continue the previous response. '
+    'Do not repeat the same word or phrase multiple times unless the source explicitly requires it. '
+    'Return exactly the same number of strings as the input.'
 )
 
 CUSTOM_LANGUAGE_RECOGNITION_PROMPT = (

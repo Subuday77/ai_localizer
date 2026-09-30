@@ -16,6 +16,7 @@ from ..constants import (
     CUSTOM_LANGUAGE_RECOGNITION_JSON_RETRY_PROMPT,
     CUSTOM_LANGUAGE_RECOGNITION_PROMPT,
     JSON_RETRY_PROMPT,
+    REPETITION_RETRY_PROMPT,
     SYSTEM_PROMPT,
     USER_PROMPT,
 )
@@ -25,12 +26,17 @@ PLACEHOLDER = re.compile(r'\{[A-Za-z_][A-Za-z_0-9]*\}')
 LANGUAGE_CODE = re.compile(r'^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$')
 T = TypeVar('T')
 
+
 class InvalidModelJSONError(ValueError):
     """Raised when NVIDIA returns text that cannot be parsed as JSON."""
 
 
 class UnchangedTranslationError(ValueError):
     """Raised when the model explicitly returns the original source strings unchanged."""
+
+
+class RepetitionLoopError(ValueError):
+    """Raised when a truncated model response degenerates into repeated text."""
 
 
 class UnsupportedTargetLanguageError(RuntimeError):
@@ -103,6 +109,42 @@ def _validate_translations(translations, originals: list[str]) -> list[str]:
     return translations
 
 
+def _has_repetition_loop(
+    content: str,
+    min_repeats: int = 10,
+    max_phrase_tokens: int = 4,
+) -> bool:
+    """Detect a short phrase repeated consecutively enough to indicate degeneration.
+
+    :param content: Raw model output to inspect.
+    :param min_repeats: Minimum consecutive repetitions required for detection.
+    :param max_phrase_tokens: Maximum repeated phrase length in word tokens.
+    :return: True when a likely repetition loop is found.
+    """
+    tokens = re.findall(r'\w+', content.casefold(), flags=re.UNICODE)
+    if len(tokens) < min_repeats:
+        return False
+
+    for phrase_size in range(1, max_phrase_tokens + 1):
+        required_tokens = phrase_size * min_repeats
+        if len(tokens) < required_tokens:
+            break
+
+        max_start = len(tokens) - required_tokens
+        for start in range(max_start + 1):
+            phrase = tokens[start:start + phrase_size]
+            repeated = True
+            for repeat_index in range(1, min_repeats):
+                offset = start + repeat_index * phrase_size
+                if tokens[offset:offset + phrase_size] != phrase:
+                    repeated = False
+                    break
+            if repeated:
+                return True
+
+    return False
+
+
 def parse_translation(content: str, originals: list[str]) -> list[str]:
     """Parse and validate an ordered translated JSON string array.
 
@@ -164,12 +206,14 @@ def build_translation_prompt(
     values: list[str],
     language: str,
     json_retry: bool = False,
+    repetition_retry: bool = False,
 ) -> str:
     """Build the prompt for translating trusted target-language strings.
 
     :param values: Ordered source strings that must be translated.
     :param language: Trusted target-language name and optional standard code.
     :param json_retry: Whether to append a stricter invalid-JSON correction instruction.
+    :param repetition_retry: Whether to append repetition-loop recovery instructions.
     :return: Fully formatted user prompt ready for the NVIDIA chat-completions request.
     """
     prompt = USER_PROMPT.format(
@@ -178,6 +222,8 @@ def build_translation_prompt(
     )
     if json_retry:
         prompt += JSON_RETRY_PROMPT
+    if repetition_retry:
+        prompt += REPETITION_RETRY_PROMPT
     return prompt
 
 
@@ -243,14 +289,14 @@ def build_request_payload(
 
 async def _request_with_retries(
     settings: Settings,
-    prompt_builder: Callable[[bool], str],
+    prompt_builder: Callable[[bool, bool], str],
     parser: Callable[[str], T],
     operation: str,
 ) -> T:
     """Run one NVIDIA operation with validation, retries and fallback-model switching.
 
     :param settings: Validated runtime settings, including credentials and retry limits.
-    :param prompt_builder: Callable that builds the prompt and receives the JSON-retry flag.
+    :param prompt_builder: Callable receiving JSON-retry and repetition-retry flags.
     :param parser: Callable that parses and validates the model raw text response.
     :param operation: Short operation name used in logs and terminal errors.
     :return: Parsed and validated model result.
@@ -266,15 +312,20 @@ async def _request_with_retries(
     max_tokens = settings.nvidia_max_tokens
     last_error: Exception = RuntimeError(f'{operation} did not complete')
     json_retry_required = False
+    repetition_retry_required = False
+    primary_repetition_count = 0
     unchanged_response_count = 0
     other_model_response_failure_count = 0
 
     async with httpx.AsyncClient(timeout=settings.nvidia_timeout_seconds) as client:
         for attempt in range(settings.nvidia_retries + 1):
-            use_fallback = (
-                attempt >= 3
-                and settings.nvidia_fallback_model_id
+            fallback_available = (
+                settings.nvidia_fallback_model_id
                 and not settings.nvidia_fallback_model_id.startswith('your-')
+            )
+            use_fallback = bool(
+                fallback_available
+                and (attempt >= 3 or primary_repetition_count >= 2)
             )
             model = settings.nvidia_fallback_model_id if use_fallback else settings.nvidia_model_id
             raw_content: str | None = None
@@ -282,7 +333,7 @@ async def _request_with_retries(
             try:
                 payload = build_request_payload(
                     model=model,
-                    prompt=prompt_builder(json_retry_required),
+                    prompt=prompt_builder(json_retry_required, repetition_retry_required),
                     max_tokens=max_tokens,
                     enable_thinking=settings.nvidia_enable_thinking,
                 )
@@ -306,11 +357,35 @@ async def _request_with_retries(
                         model,
                         raw_content[:settings.nvidia_raw_response_log_chars],
                     )
+                    if operation == 'translation' and _has_repetition_loop(raw_content):
+                        repetition_retry_required = True
+                        if model == settings.nvidia_model_id:
+                            primary_repetition_count += 1
+                        logger.warning(
+                            'NVIDIA repetition loop detected, operation=%s model=%s '
+                            'primary_repetition_count=%d',
+                            operation,
+                            model,
+                            primary_repetition_count,
+                        )
+                        raise RepetitionLoopError(
+                            'Truncated response entered a repetition loop'
+                        )
+
+                    repetition_retry_required = False
+                    if model == settings.nvidia_model_id:
+                        primary_repetition_count = 0
                     max_tokens = min(max_tokens * 2, settings.nvidia_max_tokens_cap)
                     raise ValueError('Truncated response (finish_reason=length)')
                 if reason not in ('stop', None):
+                    repetition_retry_required = False
+                    if model == settings.nvidia_model_id:
+                        primary_repetition_count = 0
                     raise ValueError(f'Unexpected finish_reason={reason}')
 
+                repetition_retry_required = False
+                if model == settings.nvidia_model_id:
+                    primary_repetition_count = 0
                 return parser(raw_content)
 
             except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
@@ -381,10 +456,11 @@ async def translate_values(
     """
     return await _request_with_retries(
         settings=settings,
-        prompt_builder=lambda json_retry: build_translation_prompt(
+        prompt_builder=lambda json_retry, repetition_retry: build_translation_prompt(
             values,
             language,
             json_retry=json_retry,
+            repetition_retry=repetition_retry,
         ),
         parser=lambda raw: parse_translation(raw, values),
         operation='translation',
@@ -404,7 +480,7 @@ async def recognize_custom_language(
     """
     return await _request_with_retries(
         settings=settings,
-        prompt_builder=lambda json_retry: build_language_recognition_prompt(
+        prompt_builder=lambda json_retry, repetition_retry: build_language_recognition_prompt(
             language,
             json_retry=json_retry,
         ),
