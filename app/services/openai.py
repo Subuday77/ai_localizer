@@ -356,7 +356,8 @@ async def _request_with_retries(
                 )
                 response.raise_for_status()
 
-                choice = response.json()['choices'][0]
+                response_data = response.json()
+                choice = response_data['choices'][0]
                 raw_content = choice['message']['content']
                 if not isinstance(raw_content, str):
                     raise ValueError('Response content is not text')
@@ -384,7 +385,23 @@ async def _request_with_retries(
                 if reason not in ('stop', None):
                     raise ValueError(f'Unexpected finish_reason={reason}')
 
-                return parser(raw_content)
+                # Log only after parsing and validation succeeded. Keep the
+                # source strings, translated content and credentials out of logs.
+                validated_result = parser(raw_content)
+                response_model = response_data.get('model')
+                if not isinstance(response_model, str) or not response_model:
+                    response_model = model
+                logger.info(
+                    'OpenAI %s successful: model=%s response_model=%s '
+                    'attempt=%d/%d fallback=%s',
+                    operation,
+                    model,
+                    response_model,
+                    attempt + 1,
+                    settings.openai_retries + 1,
+                    str(use_fallback).lower(),
+                )
+                return validated_result
 
             except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
                 last_error = exc
