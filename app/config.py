@@ -20,12 +20,13 @@ class Settings(BaseSettings):
     )
 
     openai_api_key: str = ''
-    openai_model_id: str = 'gpt-5.6'
-    openai_fallback_model_id: str = 'gpt-5.6-terra'
+    openai_model_id: str = 'gpt-6-luna'
+    openai_fallback_model_id: str = 'gpt-5.4-mini'
     openai_base_url: str = 'https://api.openai.com/v1'
     openai_max_tokens: int = Field(default=2048, ge=128)
     openai_max_tokens_cap: int = Field(default=16384, ge=128)
     openai_retries: int = Field(default=5, ge=5)
+    openai_quality_failures_before_fallback: int = Field(default=2, ge=1, le=6)
     openai_timeout_seconds: float = Field(default=45, gt=0)
     openai_retry_max_delay_seconds: float = Field(default=12, gt=0)
     openai_retry_jitter_seconds: float = Field(default=0.3, ge=0)
