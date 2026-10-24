@@ -169,3 +169,73 @@ def test_fallback_is_not_considered_available_when_same_as_primary():
     assert openai._fallback_model_available(
         settings(openai_fallback_model_id="gpt-6-luna")
     ) is False
+
+
+
+def test_success_log_reports_primary_model_and_attempt(monkeypatch, caplog):
+    """Log a validated first-attempt translation, without leaking its text or key."""
+    fake_responses(monkeypatch, ['["Уникальный переведённый текст"]'])
+    caplog.set_level(logging.INFO, logger="localizer")
+    result = asyncio.run(
+        openai.translate_values(["SENSITIVE SOURCE STRING"], "Русский", settings())
+    )
+
+    assert result == ["Уникальный переведённый текст"]
+    successes = [
+        record.message for record in caplog.records
+        if "OpenAI translation successful:" in record.message
+    ]
+    assert len(successes) == 1
+    assert "model=gpt-6-luna" in successes[0]
+    assert "response_model=gpt-6-luna" in successes[0]
+    assert "attempt=1/6" in successes[0]
+    assert "fallback=false" in successes[0]
+    assert "SENSITIVE SOURCE STRING" not in caplog.text
+    assert "Уникальный переведённый текст" not in caplog.text
+    assert "test-key" not in caplog.text
+
+
+def test_success_log_reports_real_fallback_model(monkeypatch, caplog):
+    """After two validation failures, successful backup must log fallback=true."""
+    fake_responses(monkeypatch, ["wrong json", "wrong json", '["Bonjour"]'])
+    caplog.set_level(logging.INFO, logger="localizer")
+
+    assert asyncio.run(
+        openai.translate_values(["Hello"], "Français", settings())
+    ) == ["Bonjour"]
+
+    successes = [
+        record.message for record in caplog.records
+        if "OpenAI translation successful:" in record.message
+    ]
+    assert len(successes) == 1
+    assert "model=gpt-5.4-mini" in successes[0]
+    assert "attempt=3/6" in successes[0]
+    assert "fallback=true" in successes[0]
+
+
+def test_recognition_logs_the_successful_model(monkeypatch, caplog):
+    """Recognition and translation are separately identifiable in Render logs."""
+    fake_responses(monkeypatch, [json.dumps({
+        "language_recognized": True, "language": "Yiddish", "language_code": "yi"
+    })])
+    caplog.set_level(logging.INFO, logger="localizer")
+    recognized = asyncio.run(openai.recognize_custom_language("Идиш", settings()))
+
+    assert recognized.language == "Yiddish"
+    assert "OpenAI language recognition successful:" in caplog.text
+    assert "model=gpt-6-luna" in caplog.text
+    assert "attempt=1/6" in caplog.text
+    assert "fallback=false" in caplog.text
+
+
+def test_invalid_output_never_logs_false_success(monkeypatch, caplog):
+    """Invalid JSON must not be counted as success, even if HTTP returned 200."""
+    fake_responses(monkeypatch, ["bad-json"] * 6)
+    caplog.set_level(logging.INFO, logger="localizer")
+
+    with pytest.raises(RuntimeError, match="OpenAI translation failed"):
+        asyncio.run(
+            openai.translate_values(["Hello"], "Français", settings())
+        )
+    assert "OpenAI translation successful:" not in caplog.text
