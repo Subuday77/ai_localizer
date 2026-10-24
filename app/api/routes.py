@@ -13,7 +13,7 @@ from ..constants import (
     MOCK_DICTIONARY,
 )
 from ..schemas import TranslateRequest, TranslateResponse
-from ..services.nvidia import (
+from ..services.openai import (
     UnsupportedTargetLanguageError,
     recognize_custom_language,
     translate_values,
@@ -25,7 +25,7 @@ logger = logging.getLogger('localizer')
 
 @router.get('/health', tags=['System'])
 def health() -> dict[str, str]:
-    """Report process availability without contacting NVIDIA.
+    """Report process availability without contacting OpenAI.
 
     :return: A small status payload indicating that the backend process is alive.
     """
@@ -50,11 +50,11 @@ async def translate(
 
     A custom ``language_name`` takes precedence over ``language_code``. Predefined
     dropdown languages are trusted. A manually entered language name is first
-    recognized in a dedicated NVIDIA request. Only after successful recognition is
+    recognized in a dedicated OpenAI request. Only after successful recognition is
     a second request used to translate into the canonical language and code.
 
     :param request: Source dictionary and target-language selection supplied by the client.
-    :param settings: Runtime NVIDIA and retry configuration injected by FastAPI.
+    :param settings: Runtime OpenAI and retry configuration injected by FastAPI.
     :return: Translation result, normalized language, recognition state and fallback state.
     """
     custom_language = bool(request.language_name)
@@ -144,7 +144,7 @@ async def demo(
     """Translate the built-in ten-entry mock dictionary for local testing.
 
     :param language_code: Target language code from ``LANGUAGES``; defaults to German.
-    :param settings: Runtime NVIDIA and retry configuration injected by FastAPI.
+    :param settings: Runtime OpenAI and retry configuration injected by FastAPI.
     :return: The same response structure used by the production translation endpoint.
     """
     return await translate(

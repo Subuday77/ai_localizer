@@ -1,63 +1,61 @@
 # AI Localizer
 
-Current backend version: **0.3.0**.
-
-FastAPI backend for translating an English UI dictionary with NVIDIA NIM. No database required.
+FastAPI backend for UI dictionary localization using OpenAI Chat Completions. No database required.
 
 ## Structure
 
-- `app/main.py` — FastAPI creation and router registration only
-- `app/api/routes.py` — documented HTTP endpoints
-- `app/config.py` — environment settings, timeouts, retries and NVIDIA behavior
-- `app/constants.py` — languages, mock strings and prompts
-- `app/schemas.py` — Pydantic contracts
-- `app/services/nvidia.py` — NVIDIA client, language recognition, JSON validation, diagnostic logging and retry logic
-- `app/logging_setup.py` — console and file logging
-- `tests/` — offline tests
+- app/main.py: FastAPI setup
+- app/api/routes.py: documented translation, health and demo endpoints
+- app/config.py: environment-based OpenAI model, HTTP and retry settings
+- app/services/openai.py: OpenAI API, JSON parsing and validation, language recognition, adaptive retries and model fallback
+- app/constants.py: language names and prompts
+- app/schemas.py: request and response models
+- tests/: offline tests with mocked model responses
 
-## Run
+## Render Environment Variables
 
-```bash
-python -m pip install -r requirements.txt
-cp .env.example .env
-# edit .env to provide NVIDIA_API_KEY and NVIDIA_MODEL_ID
-uvicorn app.main:app --reload --port 8080
-```
+Set OPENAI_API_KEY to your API key in the Render service's Environment tab. These additional variables have defaults and can be overridden:
 
-Open `http://localhost:8080/docs` or POST to `/demo?language_code=de`.
+| Key | Default |
+| --- | --- |
+| OPENAI_MODEL_ID | gpt-6-luna |
+| OPENAI_FALLBACK_MODEL_ID | gpt-5.4-mini |
+| OPENAI_BASE_URL | https://api.openai.com/v1 |
+| OPENAI_REASONING_EFFORT | none |
+| OPENAI_MAX_TOKENS | 2048 |
+| OPENAI_MAX_TOKENS_CAP | 16384 |
+| OPENAI_RETRIES | 5 |
+| OPENAI_QUALITY_FAILURES_BEFORE_FALLBACK | 2 |
+| OPENAI_TIMEOUT_SECONDS | 45 |
+| OPENAI_RETRY_MAX_DELAY_SECONDS | 12 |
+| OPENAI_RETRY_JITTER_SECONDS | 0.3 |
+| OPENAI_RAW_RESPONSE_LOG_CHARS | 4000 |
 
-`POST /translate` accepts `dictionary` and `language_code` or `language_name`.
-A custom `language_name` takes precedence over `language_code`.
+Legacy NVIDIA_* environment variables are ignored after migration; remove them when convenient. Never commit a live API key.
+OpenAI API usage is billed separately from ChatGPT subscriptions. Make sure the API project has access to the chosen models and billing/credits are set up.
 
-Predefined dropdown languages are trusted. A manually entered `language_name` is
-validated by the same NVIDIA request that performs the translation. Minor spelling
-mistakes are accepted when the intended real language is unambiguous, so a value
-such as `Deusch` may be normalized to `Deutsch`.
+## Run locally
 
-The response contains `language_recognized`:
+1. Install dependencies: python -m pip install -r requirements.txt
+2. Copy .env.example to .env and set OPENAI_API_KEY.
+3. Start: uvicorn app.main:app --reload --port 8080
+4. Open: http://localhost:8080/docs
 
-- `true` — the target language is known or the custom name was recognized;
-- `false` — a custom language name was not recognized;
-- `null` — the custom language could not be checked because the NVIDIA request failed.
+Endpoints: GET /health, GET /languages, POST /translate and POST /demo?language_code=de.
 
-An unrecognized custom language returns the original English dictionary with
-`fallback=false` and `error="Language not recognized"`. This is treated as user
-input validation, not as a provider failure.
+## Behavior
 
-On NVIDIA failure the original English dictionary is returned with `fallback=true`.
-At least five retries occur for transient errors; non-retryable auth/config errors fail immediately.
+- Predefined language codes are trusted. English passes through unchanged.
+- A manually entered language_name is recognized in a separate OpenAI request before translation; the recognized canonical name and language code are passed to the translator.
+- Translation output must be valid JSON with the same number and order of strings, and must preserve placeholders such as {name}.
+- If a response is malformed or truncated, the backend retries with an adjusted prompt/output budget. Only checkable translation quality issues trigger automated fallback; semantic mistranslations that still pass structural validation cannot be detected reliably.
+- After two consecutive invalid model outputs (malformed JSON, wrong count, missing placeholders, unchanged translations), the backup model is used. Otherwise, after three failed attempts, retries also use the backup model. A 404 or 410 response from the primary model switches immediately to backup.
+- Transient errors (such as 429 and 5xx) are retried with bounded exponential backoff. Non-retryable configuration/auth errors are not retried.
+- Repetition loops trigger adaptive splitting of problematic translation batches.
+- If models remain unavailable, the API returns the original English dictionary with fallback=true. Unrecognized custom languages return fallback=false and an explanation.
+- API tokens/authorization headers are not logged. Erroneous model responses may appear in limited diagnostic logs.
 
-## NVIDIA response handling
+## Tests
 
-- Reasoning/thinking is disabled by default with `NVIDIA_ENABLE_THINKING=false`. The request sends `chat_template_kwargs.enable_thinking=false` to models that support this NVIDIA chat-template option.
-- If NVIDIA returns `finish_reason == "length"`, the request is retried with a larger `max_tokens` value, up to `NVIDIA_MAX_TOKENS_CAP`.
-- Predefined languages use the compact JSON-array translation response.
-- Manually entered languages use one combined JSON object containing language-recognition status, a normalized language name, and translations. No separate validation request is made.
-- The base translation prompts explicitly require valid JSON and require double quotes inside translated text to be escaped as `\"`.
-- If a model returns invalid JSON, its raw `message.content` is written to the application log before retrying. The diagnostic text is limited by `NVIDIA_RAW_RESPONSE_LOG_CHARS` (default: 4000 characters).
-- After the first JSON parse failure, subsequent attempts add a stricter correction instruction. This stricter instruction remains active even if an intermediate retry fails with a transient HTTP error such as `503`.
-- API keys and authorization headers are never written to the log.
-- Translation arrays must contain exactly the same number of string items as the source values, in the same order.
-- Placeholders such as `{name}` must survive translation unchanged.
-
-Application logs are written to `logs/backend.log` and to stderr.
+Run offline tests with: python -m pytest -q
+Tests mock AI calls and consume no API credits.

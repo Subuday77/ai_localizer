@@ -1,4 +1,4 @@
-"""NVIDIA chat-completions adapter with validation, retries and token handling."""
+"""OpenAI chat-completions adapter with validation, retries and token handling."""
 
 import asyncio
 import json
@@ -28,7 +28,7 @@ T = TypeVar('T')
 
 
 class InvalidModelJSONError(ValueError):
-    """Raised when NVIDIA returns text that cannot be parsed as JSON."""
+    """Raised when OpenAI returns text that cannot be parsed as JSON."""
 
 
 class UnchangedTranslationError(ValueError):
@@ -214,7 +214,7 @@ def build_translation_prompt(
     :param language: Trusted target-language name and optional standard code.
     :param json_retry: Whether to append a stricter invalid-JSON correction instruction.
     :param repetition_retry: Whether to append repetition-loop recovery instructions.
-    :return: Fully formatted user prompt ready for the NVIDIA chat-completions request.
+    :return: Fully formatted user prompt ready for the OpenAI chat-completions request.
     """
     prompt = USER_PROMPT.format(
         language=language,
@@ -235,7 +235,7 @@ def build_language_recognition_prompt(
 
     :param language: User-provided target-language name.
     :param json_retry: Whether to append a stricter invalid-JSON correction instruction.
-    :return: Fully formatted recognition prompt ready for NVIDIA.
+    :return: Fully formatted recognition prompt ready for OpenAI.
     """
     prompt = CUSTOM_LANGUAGE_RECOGNITION_PROMPT.format(language=language)
     if json_retry:
@@ -250,7 +250,7 @@ def _is_unsupported_translation(
 ) -> bool:
     """Decide whether retries indicate a recognized but unsupported target language.
 
-    :param operation: Current NVIDIA operation name.
+    :param operation: Current OpenAI operation name.
     :param unchanged_response_count: Completed model responses that returned the source unchanged.
     :param other_model_response_failure_count: Completed model responses that failed for another reason.
     :return: True when the model repeatedly declined only the requested translation.
@@ -265,15 +265,15 @@ def build_request_payload(
     model: str,
     prompt: str,
     max_tokens: int,
-    enable_thinking: bool,
+    reasoning_effort: str,
 ) -> dict:
-    """Build the OpenAI-compatible NVIDIA chat-completions request body.
+    """Build the OpenAI chat-completions request body.
 
-    :param model: NVIDIA model identifier.
+    :param model: OpenAI model identifier.
     :param prompt: Fully formatted user prompt containing the target language and strings.
     :param max_tokens: Maximum number of output tokens allowed for this attempt.
-    :param enable_thinking: Whether the model's reasoning/thinking mode should be enabled.
-    :return: JSON-serializable request body for NVIDIA's chat-completions endpoint.
+    :param reasoning_effort: Reasoning effort setting (none by default).
+    :return: JSON-serializable request body for OpenAI's chat-completions endpoint.
     """
     return {
         'model': model,
@@ -281,21 +281,21 @@ def build_request_payload(
             {'role': 'system', 'content': SYSTEM_PROMPT},
             {'role': 'user', 'content': prompt},
         ],
-        'temperature': 0,
-        'max_tokens': max_tokens,
-        'chat_template_kwargs': {'enable_thinking': enable_thinking},
+        'max_completion_tokens': max_tokens,
+        'reasoning_effort': reasoning_effort,
     }
 
 
 def _fallback_model_available(settings: Settings) -> bool:
-    """Return whether a usable fallback NVIDIA model is configured.
+    """Return whether a usable fallback OpenAI model is configured.
 
-    :param settings: Validated runtime NVIDIA settings.
+    :param settings: Validated runtime OpenAI settings.
     :return: True when a non-placeholder fallback model identifier is available.
     """
     return bool(
-        settings.nvidia_fallback_model_id
-        and not settings.nvidia_fallback_model_id.startswith('your-')
+        settings.openai_fallback_model_id
+        and not settings.openai_fallback_model_id.startswith('your-')
+        and settings.openai_fallback_model_id != settings.openai_model_id
     )
 
 
@@ -306,7 +306,7 @@ async def _request_with_retries(
     operation: str,
     force_fallback_model: bool = False,
 ) -> T:
-    """Run one NVIDIA operation with validation, retries and fallback-model switching.
+    """Run one OpenAI operation with validation, retries and fallback-model switching.
 
     :param settings: Validated runtime settings, including credentials and retry limits.
     :param prompt_builder: Callable that builds the prompt from the JSON-retry flag.
@@ -318,26 +318,28 @@ async def _request_with_retries(
     :raises UnsupportedTargetLanguageError: If repeated translation responses return the source unchanged.
     :raises RuntimeError: If configuration is missing or all attempts fail.
     """
-    if not settings.nvidia_api_key or settings.nvidia_api_key.startswith('your-'):
-        raise RuntimeError('NVIDIA_API_KEY is not configured')
-    if not settings.nvidia_model_id or settings.nvidia_model_id.startswith('your-'):
-        raise RuntimeError('NVIDIA_MODEL_ID is not configured')
+    if not settings.openai_api_key or settings.openai_api_key.startswith('your-'):
+        raise RuntimeError('OpenAI_API_KEY is not configured')
+    if not settings.openai_model_id or settings.openai_model_id.startswith('your-'):
+        raise RuntimeError('OpenAI_MODEL_ID is not configured')
 
-    url = settings.nvidia_base_url.rstrip('/') + '/chat/completions'
-    max_tokens = settings.nvidia_max_tokens
+    url = settings.openai_base_url.rstrip('/') + '/chat/completions'
+    max_tokens = settings.openai_max_tokens
     last_error: Exception = RuntimeError(f'{operation} did not complete')
     json_retry_required = False
+    prefer_fallback = force_fallback_model
+    consecutive_quality_failures = 0
     unchanged_response_count = 0
     other_model_response_failure_count = 0
 
-    async with httpx.AsyncClient(timeout=settings.nvidia_timeout_seconds) as client:
-        for attempt in range(settings.nvidia_retries + 1):
+    async with httpx.AsyncClient(timeout=settings.openai_timeout_seconds) as client:
+        for attempt in range(settings.openai_retries + 1):
             fallback_available = _fallback_model_available(settings)
             use_fallback = bool(
                 fallback_available
-                and (force_fallback_model or attempt >= 3)
+                and (prefer_fallback or attempt >= 3)
             )
-            model = settings.nvidia_fallback_model_id if use_fallback else settings.nvidia_model_id
+            model = settings.openai_fallback_model_id if use_fallback else settings.openai_model_id
             raw_content: str | None = None
 
             try:
@@ -345,11 +347,11 @@ async def _request_with_retries(
                     model=model,
                     prompt=prompt_builder(json_retry_required),
                     max_tokens=max_tokens,
-                    enable_thinking=settings.nvidia_enable_thinking,
+                    reasoning_effort=settings.openai_reasoning_effort,
                 )
                 response = await client.post(
                     url,
-                    headers={'Authorization': f'Bearer {settings.nvidia_api_key}'},
+                    headers={'Authorization': f'Bearer {settings.openai_api_key}'},
                     json=payload,
                 )
                 response.raise_for_status()
@@ -362,14 +364,14 @@ async def _request_with_retries(
                 reason = choice.get('finish_reason')
                 if reason == 'length':
                     logger.warning(
-                        'NVIDIA raw truncated response, operation=%s model=%s: %r',
+                        'OpenAI raw truncated response, operation=%s model=%s: %r',
                         operation,
                         model,
-                        raw_content[:settings.nvidia_raw_response_log_chars],
+                        raw_content[:settings.openai_raw_response_log_chars],
                     )
                     if operation == 'translation' and _has_repetition_loop(raw_content):
                         logger.warning(
-                            'NVIDIA repetition loop detected, operation=%s model=%s',
+                            'OpenAI repetition loop detected, operation=%s model=%s',
                             operation,
                             model,
                         )
@@ -377,7 +379,7 @@ async def _request_with_retries(
                             'Truncated response entered a repetition loop'
                         )
 
-                    max_tokens = min(max_tokens * 2, settings.nvidia_max_tokens_cap)
+                    max_tokens = min(max_tokens * 2, settings.openai_max_tokens_cap)
                     raise ValueError('Truncated response (finish_reason=length)')
                 if reason not in ('stop', None):
                     raise ValueError(f'Unexpected finish_reason={reason}')
@@ -392,22 +394,49 @@ async def _request_with_retries(
                 elif raw_content is not None:
                     other_model_response_failure_count += 1
 
+                # Invalid model content means the provider answered, but the
+                # answer could not safely be used. Two consecutive failures
+                # should promote the stronger model before exhausting retries.
+                # Reset the streak on transport errors; they are not a signal
+                # about translation or JSON output quality.
+                is_quality_failure = (
+                    raw_content is not None
+                    and not isinstance(exc, httpx.HTTPError)
+                    and not isinstance(exc, RepetitionLoopError)
+                )
+                if is_quality_failure and not use_fallback:
+                    consecutive_quality_failures += 1
+                    if (
+                        fallback_available
+                        and consecutive_quality_failures
+                        >= settings.openai_quality_failures_before_fallback
+                    ):
+                        prefer_fallback = True
+                        logger.warning(
+                            'OpenAI %s quality failures=%d; switching to fallback model=%s',
+                            operation,
+                            consecutive_quality_failures,
+                            settings.openai_fallback_model_id,
+                        )
+                elif not is_quality_failure:
+                    consecutive_quality_failures = 0
+
                 if isinstance(exc, InvalidModelJSONError):
                     json_retry_required = True
 
                 if isinstance(exc, InvalidModelJSONError) and raw_content is not None:
                     logger.warning(
-                        'NVIDIA raw response after invalid JSON, operation=%s model=%s: %r',
+                        'OpenAI raw response after invalid JSON, operation=%s model=%s: %r',
                         operation,
                         model,
-                        raw_content[:settings.nvidia_raw_response_log_chars],
+                        raw_content[:settings.openai_raw_response_log_chars],
                     )
 
                 logger.warning(
-                    'NVIDIA %s attempt %d/%d failed, model=%s: %s',
+                    'OpenAI %s attempt %d/%d failed, model=%s: %s',
                     operation,
                     attempt + 1,
-                    settings.nvidia_retries + 1,
+                    settings.openai_retries + 1,
                     model,
                     str(exc)[:300],
                 )
@@ -415,19 +444,23 @@ async def _request_with_retries(
                 if isinstance(exc, RepetitionLoopError):
                     raise
 
-                if (
-                    isinstance(exc, httpx.HTTPStatusError)
-                    and exc.response.status_code in (400, 401, 403, 404, 410)
-                ):
-                    break
+                if isinstance(exc, httpx.HTTPStatusError):
+                    status = exc.response.status_code
+                    # Switch immediately when the primary model is unavailable/retired.
+                    if status in (404, 410) and fallback_available and not use_fallback:
+                        prefer_fallback = True
+                        continue
+                    # Bad request and credentials are not resolved by retries.
+                    if status in (400, 401, 403, 404, 410):
+                        break
 
-                if attempt < settings.nvidia_retries:
-                    delay = min(2 ** attempt, settings.nvidia_retry_max_delay_seconds)
+                if attempt < settings.openai_retries:
+                    delay = min(2 ** attempt, settings.openai_retry_max_delay_seconds)
                     await asyncio.sleep(
-                        delay + random.uniform(0, settings.nvidia_retry_jitter_seconds)
+                        delay + random.uniform(0, settings.openai_retry_jitter_seconds)
                     )
 
-    if _is_unsupported_translation(
+    if isinstance(last_error, UnchangedTranslationError) and _is_unsupported_translation(
         operation,
         unchanged_response_count,
         other_model_response_failure_count,
@@ -436,7 +469,7 @@ async def _request_with_retries(
             f'{operation} unsupported after {unchanged_response_count} unchanged responses'
         ) from last_error
 
-    raise RuntimeError(f'NVIDIA {operation} failed: {type(last_error).__name__}') from last_error
+    raise RuntimeError(f'OpenAI {operation} failed: {type(last_error).__name__}') from last_error
 
 
 async def _translate_batch(
@@ -450,7 +483,7 @@ async def _translate_batch(
 
     :param values: Ordered English strings in this translation batch.
     :param language: Trusted target-language name and optional standard code.
-    :param settings: Validated runtime NVIDIA and retry settings.
+    :param settings: Validated runtime OpenAI and retry settings.
     :param repetition_retry: Whether to tell the model a parent batch entered a repetition loop.
     :param force_fallback_model: Whether to use only the configured fallback model.
     :return: Translated strings in exactly the same order as the batch.
@@ -482,7 +515,7 @@ async def _translate_values_recursive(
 
     :param values: Ordered English strings to translate in the current batch.
     :param language: Trusted target-language name and optional standard code.
-    :param settings: Validated runtime NVIDIA and retry settings.
+    :param settings: Validated runtime OpenAI and retry settings.
     :param repetition_retry: Whether this batch follows a parent repetition-loop failure.
     :return: Translated strings preserving the original global order.
     :raises RepetitionLoopError: If a single-item batch loops and no fallback can recover it.
@@ -502,7 +535,7 @@ async def _translate_values_recursive(
                 raise
 
             logger.warning(
-                'NVIDIA repetition loop on single-item batch; switching to fallback model'
+                'OpenAI repetition loop on single-item batch; switching to fallback model'
             )
             return await _translate_batch(
                 values,
@@ -516,7 +549,7 @@ async def _translate_values_recursive(
         left_values = values[:midpoint]
         right_values = values[midpoint:]
         logger.warning(
-            'NVIDIA repetition loop recovery: splitting translation batch size=%d into %d+%d',
+            'OpenAI repetition loop recovery: splitting translation batch size=%d into %d+%d',
             len(values),
             len(left_values),
             len(right_values),
