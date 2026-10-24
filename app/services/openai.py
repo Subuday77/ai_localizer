@@ -267,7 +267,7 @@ def build_request_payload(
     max_tokens: int,
     reasoning_effort: str,
 ) -> dict:
-    """Build the OpenAI-compatible OpenAI chat-completions request body.
+    """Build the OpenAI chat-completions request body.
 
     :param model: OpenAI model identifier.
     :param prompt: Fully formatted user prompt containing the target language and strings.
@@ -295,6 +295,7 @@ def _fallback_model_available(settings: Settings) -> bool:
     return bool(
         settings.openai_fallback_model_id
         and not settings.openai_fallback_model_id.startswith('your-')
+        and settings.openai_fallback_model_id != settings.openai_model_id
     )
 
 
@@ -327,6 +328,7 @@ async def _request_with_retries(
     last_error: Exception = RuntimeError(f'{operation} did not complete')
     json_retry_required = False
     prefer_fallback = force_fallback_model
+    consecutive_quality_failures = 0
     unchanged_response_count = 0
     other_model_response_failure_count = 0
 
@@ -392,6 +394,33 @@ async def _request_with_retries(
                 elif raw_content is not None:
                     other_model_response_failure_count += 1
 
+                # Invalid model content means the provider answered, but the
+                # answer could not safely be used. Two consecutive failures
+                # should promote the stronger model before exhausting retries.
+                # Reset the streak on transport errors; they are not a signal
+                # about translation or JSON output quality.
+                is_quality_failure = (
+                    raw_content is not None
+                    and not isinstance(exc, httpx.HTTPError)
+                    and not isinstance(exc, RepetitionLoopError)
+                )
+                if is_quality_failure and not use_fallback:
+                    consecutive_quality_failures += 1
+                    if (
+                        fallback_available
+                        and consecutive_quality_failures
+                        >= settings.openai_quality_failures_before_fallback
+                    ):
+                        prefer_fallback = True
+                        logger.warning(
+                            'OpenAI %s quality failures=%d; switching to fallback model=%s',
+                            operation,
+                            consecutive_quality_failures,
+                            settings.openai_fallback_model_id,
+                        )
+                elif not is_quality_failure:
+                    consecutive_quality_failures = 0
+
                 if isinstance(exc, InvalidModelJSONError):
                     json_retry_required = True
 
@@ -431,7 +460,7 @@ async def _request_with_retries(
                         delay + random.uniform(0, settings.openai_retry_jitter_seconds)
                     )
 
-    if _is_unsupported_translation(
+    if isinstance(last_error, UnchangedTranslationError) and _is_unsupported_translation(
         operation,
         unchanged_response_count,
         other_model_response_failure_count,
