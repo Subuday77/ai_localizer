@@ -18,13 +18,14 @@ Set OPENAI_API_KEY to your API key in the Render service's Environment tab. Thes
 
 | Key | Default |
 | --- | --- |
-| OPENAI_MODEL_ID | gpt-5.6 |
-| OPENAI_FALLBACK_MODEL_ID | gpt-5.6-terra |
+| OPENAI_MODEL_ID | gpt-6-luna |
+| OPENAI_FALLBACK_MODEL_ID | gpt-5.4-mini |
 | OPENAI_BASE_URL | https://api.openai.com/v1 |
 | OPENAI_REASONING_EFFORT | none |
 | OPENAI_MAX_TOKENS | 2048 |
 | OPENAI_MAX_TOKENS_CAP | 16384 |
 | OPENAI_RETRIES | 5 |
+| OPENAI_QUALITY_FAILURES_BEFORE_FALLBACK | 2 |
 | OPENAI_TIMEOUT_SECONDS | 45 |
 | OPENAI_RETRY_MAX_DELAY_SECONDS | 12 |
 | OPENAI_RETRY_JITTER_SECONDS | 0.3 |
@@ -47,8 +48,8 @@ Endpoints: GET /health, GET /languages, POST /translate and POST /demo?language_
 - Predefined language codes are trusted. English passes through unchanged.
 - A manually entered language_name is recognized in a separate OpenAI request before translation; the recognized canonical name and language code are passed to the translator.
 - Translation output must be valid JSON with the same number and order of strings, and must preserve placeholders such as {name}.
-- If a response is malformed or truncated, the backend retries with an adjusted prompt/output budget.
-- After three failed attempts the backup model is used. A 404 or 410 response from the primary model switches immediately to backup.
+- If a response is malformed or truncated, the backend retries with an adjusted prompt/output budget. Only checkable translation quality issues trigger automated fallback; semantic mistranslations that still pass structural validation cannot be detected reliably.
+- After two consecutive invalid model outputs (malformed JSON, wrong count, missing placeholders, unchanged translations), the backup model is used. Otherwise, after three failed attempts, retries also use the backup model. A 404 or 410 response from the primary model switches immediately to backup.
 - Transient errors (such as 429 and 5xx) are retried with bounded exponential backoff. Non-retryable configuration/auth errors are not retried.
 - Repetition loops trigger adaptive splitting of problematic translation batches.
 - If models remain unavailable, the API returns the original English dictionary with fallback=true. Unrecognized custom languages return fallback=false and an explanation.
