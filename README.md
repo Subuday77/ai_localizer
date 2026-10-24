@@ -53,7 +53,9 @@ Endpoints: GET /health, GET /languages, POST /translate and POST /demo?language_
 - Transient errors (such as 429 and 5xx) are retried with bounded exponential backoff. Non-retryable configuration/auth errors are not retried.
 - Repetition loops trigger adaptive splitting of problematic translation batches.
 - If models remain unavailable, the API returns the original English dictionary with fallback=true. Unrecognized custom languages return fallback=false and an explanation.
-- API tokens/authorization headers are not logged. Erroneous model responses may appear in limited diagnostic logs.
+- Successful OpenAI operations log at INFO after JSON parsing and validation, once per validated operation. The line includes the operation (`translation` or `language recognition`), requested model ID (`model`), API-reported model ID when supplied (`response_model`), attempt number and total (`attempt`), and whether the backup model was used (`fallback`).
+- Example: `OpenAI translation successful: model=gpt-6-luna response_model=gpt-6-luna attempt=1/6 fallback=false`.
+- A successful HTTP response with invalid JSON/translation is never logged as a successful translation. API keys, authorization headers, source texts and successful translated texts are not included in the success log. Existing error diagnostics may log truncated malformed model responses.
 
 ## Tests
 
