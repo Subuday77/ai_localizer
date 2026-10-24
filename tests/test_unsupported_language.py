@@ -6,13 +6,13 @@ from app.api import routes
 from app.config import Settings
 from app.constants import FALLBACK_MESSAGE, UNSUPPORTED_LANGUAGE_MESSAGE
 from app.schemas import TranslateRequest
-from app.services.nvidia import CustomLanguageRecognition, UnsupportedTargetLanguageError
+from app.services.openai import CustomLanguageRecognition, UnsupportedTargetLanguageError
 
 
 def test_recognized_but_unsupported_language_gets_specific_message(monkeypatch) -> None:
     """Return a specific fallback message after successful language recognition.
 
-    :param monkeypatch: Pytest fixture used to replace NVIDIA service calls.
+    :param monkeypatch: Pytest fixture used to replace OpenAI service calls.
     :return: None.
     :raises AssertionError: If unsupported languages are reported as generic provider failures.
     """
@@ -55,7 +55,7 @@ def test_recognized_but_unsupported_language_gets_specific_message(monkeypatch) 
 def test_recognized_language_keeps_generic_message_for_technical_failure(monkeypatch) -> None:
     """Keep provider failures distinct from unsupported-language fallback.
 
-    :param monkeypatch: Pytest fixture used to replace NVIDIA service calls.
+    :param monkeypatch: Pytest fixture used to replace OpenAI service calls.
     :return: None.
     :raises AssertionError: If a technical failure is mislabeled as unsupported.
     """
@@ -75,7 +75,7 @@ def test_recognized_language_keeps_generic_message_for_technical_failure(monkeyp
         :param language: Normalized target-language description.
         :param settings: Runtime settings supplied by the route.
         :return: Never returns because the simulated provider fails.
-        :raises RuntimeError: Always, to model a technical NVIDIA failure.
+        :raises RuntimeError: Always, to model a technical OpenAI failure.
         """
         raise RuntimeError('provider unavailable')
 
