@@ -498,3 +498,81 @@ def test_normal_truncation_still_increases_token_limit(monkeypatch) -> None:
 
     assert result == ['Willkommen']
     assert [payload['max_completion_tokens'] for payload in payloads] == [2048, 4096]
+
+
+
+def test_missing_primary_model_switches_to_fallback_immediately(monkeypatch) -> None:
+    """A 404 from the primary model must not stop the fallback request."""
+    payloads = []
+
+    class FakeResponse:
+        def __init__(self, status, result=None):
+            self.status_code = status
+            self.result = result
+            self.request = openai.httpx.Request(
+                "POST", "https://api.openai.com/v1/chat/completions"
+            )
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise openai.httpx.HTTPStatusError(
+                    "model not found",
+                    request=self.request,
+                    response=openai.httpx.Response(
+                        self.status_code, request=self.request
+                    ),
+                )
+
+        def json(self):
+            return self.result
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def post(self, url, headers, json):
+            payloads.append(json)
+            if len(payloads) == 1:
+                return FakeResponse(404)
+            return FakeResponse(200, {
+                "choices": [{
+                    "finish_reason": "stop",
+                    "message": {"content": '["Привет"]'},
+                }]
+            })
+
+    monkeypatch.setattr(openai.httpx, "AsyncClient", FakeClient)
+    settings = Settings(
+        _env_file=None,
+        openai_api_key="test-key",
+        openai_model_id="primary-model",
+        openai_fallback_model_id="fallback-model",
+        openai_retry_jitter_seconds=0,
+    )
+    translated = asyncio.run(
+        openai.translate_values(["Hello"], "Русский", settings)
+    )
+
+    assert translated == ["Привет"]
+    assert [payload["model"] for payload in payloads] == [
+        "primary-model", "fallback-model"
+    ]
+
+
+def test_provider_payload_excludes_nvidia_specific_fields() -> None:
+    from app.services.openai import build_request_payload
+
+    payload = build_request_payload(
+        "gpt-5.6", "Translate", 2048, "none"
+    )
+    assert payload["max_completion_tokens"] == 2048
+    assert payload["reasoning_effort"] == "none"
+    assert "chat_template_kwargs" not in payload
+    assert "max_tokens" not in payload
+    assert "temperature" not in payload
