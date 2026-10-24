@@ -55,16 +55,16 @@ def fake_responses(monkeypatch, contents: list[str]) -> list[dict]:
 
 
 def settings(**kwargs) -> Settings:
-    return Settings(
-        _env_file=None,
+    config = dict(
         openai_api_key="test-key",
         openai_model_id="gpt-6-luna",
         openai_fallback_model_id="gpt-5.4-mini",
         openai_retries=5,
         openai_quality_failures_before_fallback=2,
         openai_retry_jitter_seconds=0,
-        **kwargs,
     )
+    config.update(kwargs)
+    return Settings(_env_file=None, **config)
 
 
 @pytest.mark.parametrize(
