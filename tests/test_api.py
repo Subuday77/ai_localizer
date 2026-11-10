@@ -146,3 +146,62 @@ def test_custom_language_endpoint_normalization(monkeypatch):
     assert result.language == "German"
     assert result.language_recognized is True
     assert result.fallback is False
+
+
+def test_translation_lifecycle_log_is_correlated_and_redacted(monkeypatch, caplog):
+    """Start and finish log lines share an id and contain no dictionary content."""
+    async def fake_translation(values, language, settings):
+        assert language == "Русский"
+        return ["СЕКРЕТНЫЙ_ПЕРЕВОД"]
+
+    monkeypatch.setattr(routes, "translate_values", fake_translation)
+    caplog.set_level("INFO", logger="localizer")
+    result = asyncio.run(routes.translate(
+        routes.TranslateRequest(
+            dictionary={"SECRET_KEY": "SENSITIVE_SOURCE_TEXT"}, language_code="ru",
+        ),
+        Settings(_env_file=None, openai_api_key=""),
+    ))
+
+    assert result.fallback is False
+    starts = [r.message for r in caplog.records if r.message.startswith("Translation request started:")]
+    ends = [r.message for r in caplog.records if r.message.startswith("Translation request completed:")]
+    assert len(starts) == len(ends) == 1
+    request_id = starts[0].split("id=", 1)[1].split()[0]
+    assert f"id={request_id}" in ends[0]
+    assert "target=ru" in starts[0]
+    assert "keys=1" in starts[0]
+    assert "outcome=translated" in ends[0]
+    assert "duration_ms=" in ends[0]
+    for secret in ("SECRET_KEY", "SENSITIVE_SOURCE_TEXT", "СЕКРЕТНЫЙ_ПЕРЕВОД"):
+        assert secret not in caplog.text
+
+
+def test_translation_fallback_and_cancellation_have_distinct_logs(monkeypatch, caplog):
+    """A provider failure returns a fallback, whereas cancellation propagates."""
+    async def failed_translation(values, language, settings):
+        raise RuntimeError("fake-provider-unavailable")
+
+    monkeypatch.setattr(routes, "translate_values", failed_translation)
+    caplog.set_level("INFO", logger="localizer")
+    request_payload = routes.TranslateRequest(
+        dictionary={"title": "Hello"}, language_code="ru",
+    )
+    result = asyncio.run(routes.translate(
+        request_payload, Settings(_env_file=None, openai_api_key=""),
+    ))
+    assert result.fallback is True
+    assert "error_type=RuntimeError" in caplog.text
+    assert "outcome=technical_fallback" in caplog.text
+
+    async def cancelled_translation(values, language, settings):
+        raise asyncio.CancelledError()
+
+    caplog.clear()
+    monkeypatch.setattr(routes, "translate_values", cancelled_translation)
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(routes.translate(
+            request_payload, Settings(_env_file=None, openai_api_key=""),
+        ))
+    assert "Translation request cancelled:" in caplog.text
+    assert "outcome=technical_fallback" not in caplog.text
