@@ -190,6 +190,9 @@ def test_success_log_reports_primary_model_and_attempt(monkeypatch, caplog):
     assert "response_model=gpt-6-luna" in successes[0]
     assert "attempt=1/6" in successes[0]
     assert "fallback=false" in successes[0]
+    assert "duration_ms=" in successes[0]
+    assert "OpenAI translation attempt started:" in caplog.text
+    assert "token_limit=" in caplog.text
     assert "SENSITIVE SOURCE STRING" not in caplog.text
     assert "Уникальный переведённый текст" not in caplog.text
     assert "test-key" not in caplog.text

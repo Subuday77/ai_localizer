@@ -5,6 +5,7 @@ import json
 import logging
 import random
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TypeVar
@@ -341,6 +342,13 @@ async def _request_with_retries(
             )
             model = settings.openai_fallback_model_id if use_fallback else settings.openai_model_id
             raw_content: str | None = None
+            attempt_started = time.monotonic()
+            logger.info(
+                'OpenAI %s attempt started: model=%s attempt=%d/%d '
+                'fallback=%s token_limit=%d',
+                operation, model, attempt + 1, settings.openai_retries + 1,
+                str(use_fallback).lower(), max_tokens,
+            )
 
             try:
                 payload = build_request_payload(
@@ -393,16 +401,25 @@ async def _request_with_retries(
                     response_model = model
                 logger.info(
                     'OpenAI %s successful: model=%s response_model=%s '
-                    'attempt=%d/%d fallback=%s',
+                    'attempt=%d/%d fallback=%s duration_ms=%d',
                     operation,
                     model,
                     response_model,
                     attempt + 1,
                     settings.openai_retries + 1,
                     str(use_fallback).lower(),
+                    int((time.monotonic() - attempt_started) * 1000),
                 )
                 return validated_result
 
+            except asyncio.CancelledError:
+                logger.warning(
+                    'OpenAI %s attempt cancelled: model=%s attempt=%d/%d '
+                    'duration_ms=%d',
+                    operation, model, attempt + 1, settings.openai_retries + 1,
+                    int((time.monotonic() - attempt_started) * 1000),
+                )
+                raise
             except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
                 last_error = exc
 
@@ -450,12 +467,16 @@ async def _request_with_retries(
                     )
 
                 logger.warning(
-                    'OpenAI %s attempt %d/%d failed, model=%s: %s',
+                    'OpenAI %s attempt %d/%d failed, model=%s: %s '
+                    '(error_type=%s http_status=%s duration_ms=%d)',
                     operation,
                     attempt + 1,
                     settings.openai_retries + 1,
                     model,
                     str(exc)[:300],
+                    type(exc).__name__,
+                    exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else '-',
+                    int((time.monotonic() - attempt_started) * 1000),
                 )
 
                 if isinstance(exc, RepetitionLoopError):

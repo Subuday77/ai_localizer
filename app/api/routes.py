@@ -1,6 +1,9 @@
 """HTTP endpoints; translation business logic lives in services/."""
 
+import asyncio
 import logging
+import secrets
+import time
 
 from fastapi import APIRouter, Depends
 
@@ -46,30 +49,44 @@ async def translate(
     request: TranslateRequest,
     settings: Settings = Depends(get_settings),
 ) -> TranslateResponse:
-    """Translate dictionary values while preserving every original key.
+    """Translate values while emitting content-free lifecycle diagnostics.
 
-    A custom ``language_name`` takes precedence over ``language_code``. Predefined
-    dropdown languages are trusted. A manually entered language name is first
-    recognized in a dedicated OpenAI request. Only after successful recognition is
-    a second request used to translate into the canonical language and code.
-
-    :param request: Source dictionary and target-language selection supplied by the client.
-    :param settings: Runtime OpenAI and retry configuration injected by FastAPI.
-    :return: Translation result, normalized language, recognition state and fallback state.
+    Request identifiers correlate entry, completion and failure. Never log
+    dictionary values, keys, prompts, credentials or custom language names.
     """
+    request_id = secrets.token_hex(6)
+    started = time.monotonic()
     custom_language = bool(request.language_name)
-    language = request.language_name or LANGUAGES.get(
-        (request.language_code or '').lower(),
-        request.language_code,
+    target_code = (request.language_code or '').lower().strip()
+    log_target = target_code if target_code in LANGUAGES else (
+        'custom' if custom_language else 'unknown'
+    )
+    keys_count = len(request.dictionary)
+    total_chars = sum(len(value) for value in request.dictionary.values())
+    logger.info(
+        'Translation request started: id=%s target=%s custom=%s keys=%d chars=%d',
+        request_id, log_target, str(custom_language).lower(), keys_count, total_chars,
     )
 
-    if (request.language_code or '').lower() == 'en' and not custom_language:
-        return TranslateResponse(
+    def finished(result: TranslateResponse, outcome: str) -> TranslateResponse:
+        logger.info(
+            'Translation request completed: id=%s target=%s outcome=%s '
+            'fallback=%s keys=%d duration_ms=%d',
+            request_id, log_target, outcome, str(result.fallback).lower(),
+            keys_count, int((time.monotonic() - started) * 1000),
+        )
+        return result
+
+    language = request.language_name or LANGUAGES.get(
+        target_code, request.language_code,
+    )
+    if target_code == 'en' and not custom_language:
+        return finished(TranslateResponse(
             dictionary=request.dictionary,
             language=language,
             language_recognized=True,
             fallback=False,
-        )
+        ), 'english_passthrough')
 
     keys = list(request.dictionary.keys())
     values = list(request.dictionary.values())
@@ -80,20 +97,17 @@ async def translate(
         if custom_language:
             recognition = await recognize_custom_language(language, settings)
             if not recognition.language_recognized:
-                logger.info('Custom language was not recognized: %r', language)
-                return TranslateResponse(
+                logger.info('Translation language not recognized: id=%s', request_id)
+                return finished(TranslateResponse(
                     dictionary=request.dictionary,
                     language=language,
                     language_recognized=False,
                     fallback=False,
                     error=LANGUAGE_NOT_RECOGNIZED_MESSAGE,
-                )
-
+                ), 'unrecognized')
             logger.info(
-                'Custom language recognized: input=%r normalized=%r code=%r',
-                language,
-                recognition.language,
-                recognition.language_code,
+                'Translation language recognized: id=%s normalized_code=%s',
+                request_id, recognition.language_code,
             )
             response_language = recognition.language or language
             language_recognized_state = True
@@ -105,35 +119,42 @@ async def translate(
             translated = await translate_values(values, language, settings)
             response_language = language
 
-        return TranslateResponse(
+        return finished(TranslateResponse(
             dictionary=dict(zip(keys, translated)),
             language=response_language,
             language_recognized=True,
             fallback=False,
-        )
-    except UnsupportedTargetLanguageError as exc:
+        ), 'translated')
+    except asyncio.CancelledError:
         logger.warning(
-            'Unsupported target language fallback: input=%r normalized=%r error=%s',
-            language,
-            response_language,
-            exc,
+            'Translation request cancelled: id=%s target=%s duration_ms=%d',
+            request_id, log_target, int((time.monotonic() - started) * 1000),
         )
-        return TranslateResponse(
+        raise
+    except UnsupportedTargetLanguageError:
+        logger.warning(
+            'Translation unsupported: id=%s target=%s duration_ms=%d',
+            request_id, log_target, int((time.monotonic() - started) * 1000),
+        )
+        return finished(TranslateResponse(
             dictionary=request.dictionary,
             language=response_language,
             language_recognized=language_recognized_state,
             fallback=True,
             error=UNSUPPORTED_LANGUAGE_MESSAGE,
-        )
+        ), 'unsupported_fallback')
     except Exception as exc:
-        logger.error('English fallback for language=%s: %s', response_language, exc)
-        return TranslateResponse(
+        logger.exception(
+            'Translation request failed: id=%s target=%s error_type=%s',
+            request_id, log_target, type(exc).__name__,
+        )
+        return finished(TranslateResponse(
             dictionary=request.dictionary,
             language=response_language,
             language_recognized=language_recognized_state,
             fallback=True,
             error=FALLBACK_MESSAGE,
-        )
+        ), 'technical_fallback')
 
 
 @router.post('/demo', response_model=TranslateResponse, tags=['Demo'])
