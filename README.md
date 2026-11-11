@@ -61,3 +61,14 @@ Endpoints: GET /health, GET /languages, POST /translate and POST /demo?language_
 
 Run offline tests with: python -m pytest -q
 Tests mock AI calls and consume no API credits.
+
+## Koyeb always-on deployment
+
+A Koyeb-compatible `Procfile` is provided. Use Koyeb's Python Buildpack,
+HTTP port `8000`, health check `/health`, and a **paid Eco Micro with one
+always-on instance** (not the sleeping Free instance).
+
+See [docs/KOYEB_DEPLOY.md](docs/KOYEB_DEPLOY.md) for the verified migration
+sequence, required secrets, smoke tests, cutover of the separate Angular
+frontend and Quiz client, and rollback instructions. Keep the existing Render
+API live until the replacement passes these checks.
