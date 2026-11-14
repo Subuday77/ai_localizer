@@ -77,6 +77,9 @@ async def translate(
     Request identifiers correlate entry, completion and failure. Never log
     dictionary values, keys, prompts, credentials or custom language names.
     """
+    if request.quality_mode == 'verified':
+        # Fail closed until independent controller and scoring configuration land.
+        raise HTTPException(status_code=501, detail='Verified mode is not implemented yet')
     request_id = secrets.token_hex(6)
     started = time.monotonic()
     custom_language = bool(request.language_name)
