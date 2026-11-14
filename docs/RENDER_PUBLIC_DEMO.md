@@ -53,6 +53,55 @@ If quota storage fails, API must fail closed with HTTP 503.
 8. Verify the actual static site translation, RTL and custom language.
 9. Retire Render API only after the website is working and rollback is known.
 
+
+## Verified current Caddyfile (November 14, 2026)
+
+The existing site uses the hostname v2202611457040557919.quicksrv.de
+with GET /health proxied to the Localizer and a deny-all fallback.
+Once the new API is deployed, enabled, healthy and locally tested,
+replace the site block with this minimal path+method allowlist:
+
+```caddyfile
+v2202611457040557919.quicksrv.de {
+    @health {
+        path /health
+        method GET
+    }
+    handle @health {
+        reverse_proxy 127.0.0.1:18080
+    }
+
+    @languages {
+        path /languages
+        method GET
+    }
+    handle @languages {
+        reverse_proxy 127.0.0.1:18080
+    }
+
+    @public_demo {
+        path /public-demo/translate
+        method POST OPTIONS
+    }
+    handle @public_demo {
+        reverse_proxy 127.0.0.1:18080 {
+            # OVERWRITE user-controlled input. Otherwise all guests
+            # appear to FastAPI as Caddy and share a single IP limit.
+            header_up X-Demo-Client-IP {http.request.remote.host}
+        }
+    }
+
+    handle {
+        respond "Forbidden" 403
+    }
+}
+```
+
+Back up /etc/caddy/Caddyfile before modification. Validate Caddyfile
+and reload, never restart blindly. Keep all other routes denied.
+Optional request body cap: Caddy request_body max_size requires Caddy >=2.10;
+check the installed version before using it.
+
 ## Rollback
 Restore frontend production API URL to
 https://ai-localizer-api.onrender.com and redeploy Render (leave old API
