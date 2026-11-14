@@ -72,7 +72,7 @@ def _build_review_prompt(
         'do NOT demand a terminology substitution that contradicts an unambiguous '
         'source sentence. Report only concrete errors, not invented issues. '
         'Output ONLY valid JSON in this exact shape: {"issues":[{"type":"meaning",'
-        '"severity":"high","source_span":"...","translated_span":"...",'
+        '"severity":"high","item_index":0,"source_span":"...","translated_span":"...",'
         '"expected":"...","context_rule_id":null,"reason":"..."}]}. '
         'Allowed type: meaning, omission, addition, context_mismatch, '
         'terminology, style, format, other. Allowed severity: critical, high, '
@@ -95,7 +95,10 @@ async def review(
 
     def parse(content: str) -> ControllerAssessment:
         result = _load_model_json(content)
-        return ControllerAssessment.model_validate(result)
+        assessment = ControllerAssessment.model_validate(result)
+        if any(issue.item_index >= len(original) for issue in assessment.issues):
+            raise ValueError('Quality issue references an invalid source index')
+        return assessment
 
     return await _request_with_retries(
         controller_settings,
