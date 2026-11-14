@@ -34,8 +34,20 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    networks:
+      default:
+      quiz_localizer:
+        aliases:
+          - localizer-api
     logging:
       driver: local
       options:
         max-size: "10m"
         max-file: "3"
+
+# Explicit, private network shared only with the Quiz backend on this VPS.
+# Create once with: docker network create --internal ai-localizer-clients
+networks:
+  quiz_localizer:
+    external: true
+    name: ai-localizer-clients
