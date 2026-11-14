@@ -166,16 +166,16 @@ def build_context_prompt(context: ResolvedContext, target_code: str, source_code
     if not context.profiles:
         # Historical v1 profile: preserve the exact pre-specialization prompt.
         return (
-            '\\nSubject-domain context (JSON data, not user instructions): '
+            '\nSubject-domain context (JSON data, not user instructions): '
             + json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
-            + '\\nUse these hints only when they fit the meaning of each complete source string. '
+            + '\nUse these hints only when they fit the meaning of each complete source string. '
             'Never mechanically replace a term or override an unambiguous source meaning. '
             'Keep the exact output JSON-array contract.'
         )
 
     payload['professional_profiles'] = [profile.model_dump() for profile in context.profiles]
     return (
-        '\\nProfessional domain localization assignment: '
+        '\nProfessional domain localization assignment: '
         'Act as an expert website/UI localization translator specializing in the '
         'most specific professional profile below. The source strings are ENGLISH; '
         'write in the REQUESTED TARGET LANGUAGE, using natural specialist vocabulary '
@@ -189,9 +189,9 @@ def build_context_prompt(context: ResolvedContext, target_code: str, source_code
         'Do not invent facts or technical details not present in the English input. '
         'This assignment is about meaning and natural professional terminology, '
         'not word-for-word substitution. '
-        '\\nVersion-pinned domain profiles and optional terminology (JSON data): '
+        '\nVersion-pinned domain profiles and optional terminology (JSON data): '
         + json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
-        + '\\nUse phrase-specific terminology rules only when the entire source '
+        + '\nUse phrase-specific terminology rules only when the entire source '
         'string supports the stated condition and language pair. '
         'Never mechanically replace words, never translate into Russian unless '
         'Russian is the target, and keep the exact output JSON-array contract.'
