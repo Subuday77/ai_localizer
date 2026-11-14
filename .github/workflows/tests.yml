@@ -49,7 +49,10 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Apply real PostgreSQL migrations
         run: alembic upgrade head
-      - name: Seed contexts and verify pinned inheritance on PostgreSQL
+      - name: Seed and publish language-neutral profiles on PostgreSQL
         run: |
           python -m scripts.seed_contexts
           python -c "import os; from app.contexts.repository import resolve_context, list_public_contexts; url=os.environ['LOCALIZER_DATABASE_URL']; c=resolve_context(url, 'electronics'); assert c.version == 1 and c.style['tone'] == 'precise and professional'; assert len(list_public_contexts(url)) == 6 and resolve_context(url, 'military').rules[0].preferred == 'наградные планки'"
+          python -m scripts.publish_professional_profiles
+          python -m scripts.publish_professional_profiles
+          python -c "import os; from app.contexts.repository import resolve_context, list_public_contexts, build_context_prompt; url=os.environ['LOCALIZER_DATABASE_URL']; v1=resolve_context(url, 'electronics', 1); v2=resolve_context(url, 'electronics'); assert v1.version == 1 and not v1.profiles; assert v2.version == 2 and len(v2.profiles) == 2; assert v2.rules == v1.rules; assert len(list_public_contexts(url)) == 6 and all(item['version'] == 2 for item in list_public_contexts(url)); assert 'electronics' in build_context_prompt(v2, 'de')"
