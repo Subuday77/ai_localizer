@@ -20,6 +20,8 @@ def require_independent_controller(settings: Settings) -> str:
     controller = settings.localizer_qa_controller_model_id.strip()
     if not settings.localizer_qa_verified_enabled:
         raise QualityConfigurationError('Verified mode is disabled')
+    if not settings.localizer_qa_verified_api_key_hashes:
+        raise QualityConfigurationError('Verified API key grants are not configured')
     if not controller or controller.startswith('your-'):
         raise QualityConfigurationError('Controller model ID is not configured')
     if controller in {settings.openai_model_id, settings.openai_fallback_model_id}:
