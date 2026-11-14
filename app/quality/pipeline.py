@@ -47,10 +47,10 @@ async def verify_translation(
     issues = [item.model_dump() for item in initial.issues]
     repair_hint = (
         (context_prompt or '')
-        + '\\nThe previous draft translation had these specific issues. '
+        + '\nThe previous draft translation had these specific issues. '
         + 'Previous translated array: ' + json.dumps(translated, ensure_ascii=False)
-        + '\\nController issues: ' + json.dumps(issues, ensure_ascii=False)
-        + '\\nCorrect the listed issues while preserving already-correct segments. '
+        + '\nController issues: ' + json.dumps(issues, ensure_ascii=False)
+        + '\nCorrect the listed issues while preserving already-correct segments. '
         + 'Return ONLY the corrected translated JSON array, in the original order.'
     )
     repaired = await translate_values(
