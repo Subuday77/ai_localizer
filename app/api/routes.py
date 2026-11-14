@@ -1,11 +1,13 @@
 """HTTP endpoints; translation business logic lives in services/."""
 
 import asyncio
+import hashlib
+import hmac
 import logging
 import secrets
 import time
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from starlette.concurrency import run_in_threadpool
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -73,6 +75,7 @@ def contexts(settings: Settings = Depends(get_settings)) -> dict:
 async def translate(
     request: TranslateRequest,
     settings: Settings = Depends(get_settings),
+    authorization: str | None = Header(default=None),
 ) -> TranslateResponse:
     """Translate values while emitting content-free lifecycle diagnostics.
 
@@ -87,6 +90,15 @@ async def translate(
             require_independent_controller(settings)
         except QualityConfigurationError:
             raise HTTPException(status_code=503, detail='Verified quality configuration is incomplete')
+        # General /translate keys are insufficient for the internal paid-quality tier.
+        scheme, separator, token = (authorization or '').partition(' ')
+        if (scheme.lower() != 'bearer' or not separator or not token or
+                len(token) > 256 or token.strip() != token):
+            raise HTTPException(status_code=403, detail='Verified access not granted')
+        token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+        if not any(hmac.compare_digest(token_hash, key_hash)
+                   for key_hash in settings.localizer_qa_verified_api_key_hashes):
+            raise HTTPException(status_code=403, detail='Verified access not granted')
         if request.language_code == 'en' and not request.language_name:
             raise HTTPException(status_code=422, detail='Verified mode requires a target translation')
     request_id = secrets.token_hex(6)
