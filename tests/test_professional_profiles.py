@@ -97,6 +97,32 @@ def test_specialists_remain_language_neutral(profile_db):
             assert '"rules":[]' in prompt
 
 
+def test_system_level_specialist_role_is_v2_only(profile_db, monkeypatch):
+    from app.constants import SPECIALIST_SYSTEM_PROMPT, SYSTEM_PROMPT
+    from app.services import openai
+
+    system_prompts = []
+
+    async def fake_request(**kwargs):
+        system_prompts.append(kwargs['system_prompt'])
+        return ['ok']
+
+    monkeypatch.setattr(openai, '_request_with_retries', fake_request)
+    settings = Settings(_env_file=None)
+    for version in (1, 2):
+        context = resolve_context(profile_db, 'electronics', version)
+        context_prompt = build_context_prompt(context, 'de')
+        translated = asyncio.run(openai.translate_values(
+            ['The bus failed.'], 'Deutsch', settings, context_prompt=context_prompt,
+        ))
+        assert translated == ['ok']
+    translated = asyncio.run(openai.translate_values(
+        ['The bus failed.'], 'Deutsch', settings,
+    ))
+    assert translated == ['ok']
+    assert system_prompts == [SYSTEM_PROMPT, SPECIALIST_SYSTEM_PROMPT, SYSTEM_PROMPT]
+
+
 def test_idempotent_publish_and_reject_unexpected_snapshots(profile_db):
     engine = create_engine(profile_db)
     with Session(engine) as session, session.begin():
