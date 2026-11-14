@@ -25,6 +25,8 @@ from ..constants import (
     MOCK_DICTIONARY,
 )
 from ..schemas import TranslateRequest, TranslateResponse
+from ..quality.controller import QualityConfigurationError, require_independent_controller
+from ..quality.pipeline import VerificationFailed, verify_translation
 from ..services.openai import (
     UnsupportedTargetLanguageError,
     recognize_custom_language,
@@ -78,8 +80,15 @@ async def translate(
     dictionary values, keys, prompts, credentials or custom language names.
     """
     if request.quality_mode == 'verified':
-        # Fail closed until independent controller and scoring configuration land.
-        raise HTTPException(status_code=501, detail='Verified mode is not implemented yet')
+        # Verified is deliberately internal-only; no anonymous or public-demo access.
+        if not settings.localizer_require_api_key or not settings.localizer_qa_verified_enabled:
+            raise HTTPException(status_code=403, detail='Verified mode is not enabled for this API')
+        try:
+            require_independent_controller(settings)
+        except QualityConfigurationError:
+            raise HTTPException(status_code=503, detail='Verified quality configuration is incomplete')
+        if request.language_code == 'en' and not request.language_name:
+            raise HTTPException(status_code=422, detail='Verified mode requires a target translation')
     request_id = secrets.token_hex(6)
     started = time.monotonic()
     custom_language = bool(request.language_name)
@@ -139,6 +148,7 @@ async def translate(
     values = list(request.dictionary.values())
     response_language = language
     language_recognized_state: bool | None = True if not custom_language else None
+    quality_report = None
 
     try:
         if custom_language:
@@ -184,11 +194,32 @@ async def translate(
                 )
             response_language = language
 
+        if request.quality_mode == 'verified':
+            try:
+                translated, quality_report = await verify_translation(
+                    values, translated,
+                    target_language if custom_language else language,
+                    settings, resolved_context, context_prompt,
+                )
+            except VerificationFailed as exc:
+                logger.warning('Independent verification failed: id=%s', request_id)
+                raise HTTPException(
+                    status_code=422,
+                    detail={'status': 'verification_failed',
+                            'quality_report': exc.report.model_dump()},
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception('Independent verification unavailable: id=%s', request_id)
+                raise HTTPException(status_code=503, detail='Independent verification unavailable')
+
         return finished(TranslateResponse(
             dictionary=dict(zip(keys, translated)),
             language=response_language,
             language_recognized=True,
             fallback=False,
+            quality_report=quality_report,
         ), 'translated')
     except asyncio.CancelledError:
         logger.warning(
@@ -196,7 +227,11 @@ async def translate(
             request_id, log_target, int((time.monotonic() - started) * 1000),
         )
         raise
+    except HTTPException:
+        raise
     except UnsupportedTargetLanguageError:
+        if request.quality_mode == 'verified':
+            raise HTTPException(status_code=422, detail='Target language not reliably supported')
         logger.warning(
             'Translation unsupported: id=%s target=%s duration_ms=%d',
             request_id, log_target, int((time.monotonic() - started) * 1000),
@@ -209,6 +244,9 @@ async def translate(
             error=UNSUPPORTED_LANGUAGE_MESSAGE,
         ), 'unsupported_fallback')
     except Exception as exc:
+        if request.quality_mode == 'verified':
+            logger.exception('Verified translation failed: id=%s', request_id)
+            raise HTTPException(status_code=503, detail='Verified translation unavailable')
         logger.exception(
             'Translation request failed: id=%s target=%s error_type=%s',
             request_id, log_target, type(exc).__name__,
