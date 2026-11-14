@@ -16,6 +16,7 @@ class QualityIssue(BaseModel):
 
     type: IssueType
     severity: Severity
+    item_index: int = Field(ge=0)
     source_span: str = Field(default='', max_length=500)
     translated_span: str = Field(default='', max_length=500)
     expected: str = Field(default='', max_length=500)
