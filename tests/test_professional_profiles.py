@@ -1,11 +1,13 @@
 """Professional domain profiles: pinned v2 snapshots and multilingual website UI prompts."""
 
 import asyncio
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
 import pytest
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
@@ -17,7 +19,7 @@ from app.contexts.repository import (
 )
 from app.main import app
 from scripts.publish_professional_profiles import publish
-from scripts.seed_contexts import seed
+from scripts.seed_contexts import STARTER_CONTEXTS, seed
 
 
 @pytest.fixture
@@ -168,8 +170,35 @@ def test_actual_alembic_upgrade_preserves_pinned_v1_and_adds_v2(tmp_path, monkey
         # Mimic an existing Localizer 2.0 installation before the profile upgrade.
         command.upgrade(config, '0001_contexts')
         old_engine = create_engine(url)
-        with Session(old_engine) as session, session.begin():
-            seed(session)
+        # Raw SQL is intentional: the v1 database has no domain_profile
+        # column, so the current v2 ORM cannot load ContextVersion yet.
+        with old_engine.begin() as connection:
+            for item in STARTER_CONTEXTS:
+                connection.execute(text(
+                    'INSERT INTO contexts '
+                    '(id, title, description, is_public, published_version, created_at) '
+                    'VALUES (:id, :title, :description, 1, 1, :created_at)'
+                ), {
+                    'id': item['id'], 'title': item['title'],
+                    'description': item['description'],
+                    'created_at': datetime.now(timezone.utc),
+                })
+            for item in STARTER_CONTEXTS:
+                connection.execute(text(
+                    'INSERT INTO context_versions '
+                    '(context_id, version, status, parent_context_id, parent_version, '
+                    'rules, glossary, style, created_at) '
+                    'VALUES (:context_id, 1, :status, :parent_context_id, '
+                    ':parent_version, :rules, :glossary, :style, :created_at)'
+                ), {
+                    'context_id': item['id'], 'status': 'published',
+                    'parent_context_id': item['parent'],
+                    'parent_version': 1 if item['parent'] else None,
+                    'rules': json.dumps(item['rules']),
+                    'glossary': json.dumps([]),
+                    'style': json.dumps(item['style']),
+                    'created_at': datetime.now(timezone.utc),
+                })
         old_engine.dispose()
 
         command.upgrade(config, 'head')
