@@ -481,7 +481,7 @@ async def _request_with_retries(
                     attempt + 1,
                     settings.openai_retries + 1,
                     model,
-                    str(exc)[:300],
+                    type(exc).__name__ if operation == 'quality review' else str(exc)[:300],
                     type(exc).__name__,
                     exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else '-',
                     int((time.monotonic() - attempt_started) * 1000),
