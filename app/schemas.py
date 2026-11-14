@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from .quality.schemas import QualityReport
+
 
 class PageViewRequest(BaseModel):
     """Minimal anonymous page-view event sent by the frontend."""
@@ -44,3 +46,4 @@ class TranslateResponse(BaseModel):
     error: str | None = None
     context_id: str | None = None
     context_version: int | None = None
+    quality_report: QualityReport | None = None
