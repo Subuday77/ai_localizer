@@ -127,3 +127,17 @@ def test_demo_uses_same_translation_logic_with_no_arbitrary_text(demo_mode, monk
     assert len(result.json()["dictionary"]) == len(public_demo.DEMO_ENGLISH_UI)
     assert captured["values"] == list(public_demo.DEMO_ENGLISH_UI.values())
     assert captured["language"] == "Русский"
+
+
+def test_caddy_ip_header_keeps_hourly_quota_per_visitor(demo_mode):
+    payload = {"language_code": "en"}
+    for addr in ("203.0.113.9", "203.0.113.9", "203.0.113.10", "203.0.113.10"):
+        r = request(
+            "POST", "/public-demo/translate",
+            json=payload, headers={"X-Demo-Client-IP": addr},
+        )
+        assert r.status_code == 200
+    assert request(
+        "POST", "/public-demo/translate",
+        json=payload, headers={"X-Demo-Client-IP": "203.0.113.9"},
+    ).status_code == 429
