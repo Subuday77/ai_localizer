@@ -24,5 +24,5 @@ if settings.cors_origins:
 
 
 app.include_router(router)
-app.include_router(public_demo_router
+app.include_router(public_demo_router)
 app.include_router(analytics_router)
