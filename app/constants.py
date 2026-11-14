@@ -20,6 +20,20 @@ SYSTEM_PROMPT = (
     'Never output an unescaped double quote inside a JSON string.'
 )
 
+# A structured v2 context activates a stronger system-level professional role.
+# Legacy v1 and context-free translations retain their original system prompt.
+SPECIALIST_ASSIGNMENT_PREFIX = '\nProfessional domain localization assignment: '
+SPECIALIST_SYSTEM_PROMPT = SYSTEM_PROMPT + (
+    ' When the translation request includes a versioned professional domain '
+    'profile, act as a specialized website/UI localizer for that profession. '
+    'Treat ambiguous short English strings as belonging to that subject domain '
+    'by default, using established terminology of the requested target language. '
+    'The most specific profile takes precedence over inherited general profiles. '
+    'Do not force domain terminology where the source unambiguously means '
+    'something different, and do not invent unstated details. '
+    'Keep exactly the requested JSON output format and preserve placeholders.'
+)
+
 USER_PROMPT = (
     'Translate each string in the JSON array strictly into {language}. '
     'Use exactly the requested target language and do not substitute Russian, English, '
