@@ -261,3 +261,91 @@ def test_verified_rejects_general_api_key_without_verified_grant():
         hashlib.sha256(b'some-other-internal-key').hexdigest(),
     ]))
     assert r.status_code == 403
+
+
+def test_controller_provider_model_identity_and_auditor_prompt(monkeypatch):
+    from app.quality.controller import review
+    from app.services import openai
+    from app.services.openai import ModelIdentityMismatchError
+
+    captured = []
+    model_in_reply = ['controller-b']
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                'model': model_in_reply[0],
+                'choices': [{
+                    'finish_reason': 'stop',
+                    'message': {'content': '{"issues":[]}'},
+                }],
+            }
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def post(self, url, headers, json):
+            captured.append(json)
+            return FakeResponse()
+
+    monkeypatch.setattr(openai.httpx, 'AsyncClient', FakeClient)
+    config = settings(openai_api_key='fixture-only')
+
+    result = asyncio.run(review(['Hello'], ['Hallo'], 'German', config, None))
+    assert result.issues == []
+    assert len(captured) == 1
+    assert captured[0]['model'] == 'controller-b'
+    assert 'independent translation quality auditor' in captured[0]['messages'][0]['content']
+
+    model_in_reply[0] = 'translator-a'
+    with pytest.raises(ModelIdentityMismatchError):
+        asyncio.run(review(['Hello'], ['Hallo'], 'German', config, None))
+    # Model identity mismatches are terminal: no retries or extra token spend.
+    assert len(captured) == 2
+
+
+def test_translator_provider_cannot_report_controller_model(monkeypatch):
+    from app.services import openai
+    from app.services.openai import ModelIdentityMismatchError
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                'model': 'controller-b',
+                'choices': [{
+                    'finish_reason': 'stop',
+                    'message': {'content': '["Bonjour"]'},
+                }],
+            }
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def post(self, url, headers, json):
+            return FakeResponse()
+
+    monkeypatch.setattr(openai.httpx, 'AsyncClient', FakeClient)
+    with pytest.raises(ModelIdentityMismatchError):
+        asyncio.run(openai.translate_values(
+            ['Hello'], 'French', settings(openai_api_key='fixture-only'),
+        ))
