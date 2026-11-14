@@ -32,13 +32,13 @@ def context_db(tmp_path):
     engine = create_engine(url)
     Base.metadata.create_all(engine)
     with Session(engine) as session, session.begin():
-        assert seed(session) == 5
+        assert seed(session) == 6
     yield url
     engine.dispose()
 
 
 def test_seed_is_idempotent_and_catalog_only_lists_public_published(context_db):
-    assert len(list_public_contexts(context_db)) == 5
+    assert len(list_public_contexts(context_db)) == 6
     engine = create_engine(context_db)
     with Session(engine) as session, session.begin():
         assert seed(session) == 0
@@ -47,7 +47,7 @@ def test_seed_is_idempotent_and_catalog_only_lists_public_published(context_db):
         railway = session.get(Context, 'railway')
         railway.published_version = None
     assert [x['id'] for x in list_public_contexts(context_db)] == [
-        'electronics', 'software', 'technology',
+        'electronics', 'military', 'software', 'technology',
     ]
     engine.dispose()
 
@@ -82,6 +82,18 @@ def test_context_prompt_filters_pairs_and_preserves_unambiguous_meaning(context_
     assert 'precise and professional' in german
 
 
+def test_military_rule_is_published_and_only_targets_russian(context_db):
+    catalog = list_public_contexts(context_db)
+    assert any(item['id'] == 'military' and item['version'] == 1 for item in catalog)
+    military = resolve_context(context_db, 'military')
+    assert military.version == 1
+    russian = build_context_prompt(military, 'ru')
+    assert 'military-fruit-salad' in russian
+    assert 'наградные планки' in russian
+    assert 'фруктовый салат' in russian
+    assert 'military-fruit-salad' not in build_context_prompt(military, 'de')
+
+
 def test_context_api_and_pinned_response(context_db, monkeypatch):
     from app.api import routes
 
@@ -99,7 +111,7 @@ def test_context_api_and_pinned_response(context_db, monkeypatch):
     try:
         catalog = api('GET', '/contexts')
         assert catalog.status_code == 200
-        assert len(catalog.json()['contexts']) == 5
+        assert len(catalog.json()['contexts']) == 6
         response = api('POST', '/translate', json={
             'dictionary': {'a': 'Copper is a good conductor.'},
             'language_code': 'ru',
@@ -161,8 +173,8 @@ def test_alembic_migration_creates_catalog_tables(tmp_path, monkeypatch):
         command.upgrade(config, 'head')
         engine = create_engine(url)
         with Session(engine) as session, session.begin():
-            assert seed(session) == 5
-        assert len(list_public_contexts(url)) == 5
+            assert seed(session) == 6
+        assert len(list_public_contexts(url)) == 6
         engine.dispose()
     finally:
         get_settings.cache_clear()
