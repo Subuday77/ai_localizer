@@ -208,6 +208,7 @@ def build_translation_prompt(
     language: str,
     json_retry: bool = False,
     repetition_retry: bool = False,
+    context_prompt: str | None = None,
 ) -> str:
     """Build the prompt for translating trusted target-language strings.
 
@@ -221,6 +222,8 @@ def build_translation_prompt(
         language=language,
         values=json.dumps(values, ensure_ascii=False),
     )
+    if context_prompt:
+        prompt += context_prompt
     if json_retry:
         prompt += JSON_RETRY_PROMPT
     if repetition_retry:
@@ -516,6 +519,7 @@ async def _translate_batch(
     settings: Settings,
     repetition_retry: bool = False,
     force_fallback_model: bool = False,
+    context_prompt: str | None = None,
 ) -> list[str]:
     """Translate one batch without changing its boundaries.
 
@@ -536,6 +540,7 @@ async def _translate_batch(
             language,
             json_retry=json_retry,
             repetition_retry=repetition_retry,
+            context_prompt=context_prompt,
         ),
         parser=lambda raw: parse_translation(raw, values),
         operation='translation',
@@ -548,6 +553,7 @@ async def _translate_values_recursive(
     language: str,
     settings: Settings,
     repetition_retry: bool = False,
+    context_prompt: str | None = None,
 ) -> list[str]:
     """Translate adaptively, splitting only batches that enter repetition loops.
 
@@ -566,6 +572,7 @@ async def _translate_values_recursive(
             language,
             settings,
             repetition_retry=repetition_retry,
+            context_prompt=context_prompt,
         )
     except RepetitionLoopError:
         if len(values) <= 1:
@@ -581,6 +588,7 @@ async def _translate_values_recursive(
                 settings,
                 repetition_retry=True,
                 force_fallback_model=True,
+                context_prompt=context_prompt,
             )
 
         midpoint = len(values) // 2
@@ -598,12 +606,14 @@ async def _translate_values_recursive(
             language,
             settings,
             repetition_retry=True,
+            context_prompt=context_prompt,
         )
         right_translated = await _translate_values_recursive(
             right_values,
             language,
             settings,
             repetition_retry=True,
+            context_prompt=context_prompt,
         )
         return left_translated + right_translated
 
@@ -612,6 +622,7 @@ async def translate_values(
     values: list[str],
     language: str,
     settings: Settings,
+    context_prompt: str | None = None,
 ) -> list[str]:
     """Translate strings into a trusted target language with adaptive loop recovery.
 
@@ -623,7 +634,9 @@ async def translate_values(
     :raises UnsupportedTargetLanguageError: If repeated completed responses decline the target language.
     :raises RuntimeError: If configuration is missing or all translation attempts fail.
     """
-    return await _translate_values_recursive(values, language, settings)
+    return await _translate_values_recursive(
+        values, language, settings, context_prompt=context_prompt,
+    )
 
 
 async def recognize_custom_language(
