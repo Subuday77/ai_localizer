@@ -8,6 +8,9 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
+    # Fail closed for VPS: the container refuses to start without key hashes.
+    environment:
+      LOCALIZER_REQUIRE_API_KEY: "true"
     ports:
       - "127.0.0.1:18080:8080"
     restart: unless-stopped
