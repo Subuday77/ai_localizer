@@ -7,6 +7,7 @@ Requests are counted in a persistent SQLite volume before any AI work starts.
 import asyncio
 from datetime import datetime, timezone
 import hashlib
+import ipaddress
 import logging
 import sqlite3
 import time
@@ -166,7 +167,16 @@ async def public_demo_translate(
             headers={"Retry-After": "30"},
         ) from None
     try:
-        _claim_quota(settings, request.client.host if request.client else "unknown")
+        # Caddy overwrites X-Demo-Client-IP with the immediate TLS peer IP.
+        # The API's own socket sees Caddy's bridge/loopback IP, not visitors.
+        # Only parse this dedicated header from the trusted Caddy ingress;
+        # an invalid value falls back to the peer IP.
+        reported_ip = request.headers.get("x-demo-client-ip", "")
+        try:
+            visitor_ip = str(ipaddress.ip_address(reported_ip))
+        except ValueError:
+            visitor_ip = request.client.host if request.client else "unknown"
+        _claim_quota(settings, visitor_ip)
         return await translate(
             TranslateRequest(
                 dictionary=DEMO_ENGLISH_UI,
