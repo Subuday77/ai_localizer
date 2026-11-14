@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - feature/openai-localizer
+      - 'feature/localizer-2-*'
   pull_request:
     branches:
       - master
       - feature/vps-migration-isolated-20261114
+      - feature/vps-public-demo-20261114
 
 jobs:
   tests:
