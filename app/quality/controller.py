@@ -58,6 +58,7 @@ def _build_review_prompt(
             'rules': [r.model_dump() for r in context.rules],
             'glossary': [g.model_dump() for g in context.glossary],
             'style': context.style,
+            'professional_profiles': [p.model_dump() for p in context.profiles],
         }
     payload = {
         'source_language': 'en', 'target_language': target_language,
