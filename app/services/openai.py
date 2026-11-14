@@ -19,6 +19,8 @@ from ..constants import (
     JSON_RETRY_PROMPT,
     REPETITION_RETRY_PROMPT,
     SYSTEM_PROMPT,
+    SPECIALIST_ASSIGNMENT_PREFIX,
+    SPECIALIST_SYSTEM_PROMPT,
     USER_PROMPT,
 )
 
@@ -563,6 +565,11 @@ async def _translate_batch(
         parser=lambda raw: parse_translation(raw, values),
         operation='translation',
         force_fallback_model=force_fallback_model,
+        system_prompt=(
+            SPECIALIST_SYSTEM_PROMPT
+            if (context_prompt or '').startswith(SPECIALIST_ASSIGNMENT_PREFIX)
+            else SYSTEM_PROMPT
+        ),
     )
 
 
