@@ -178,7 +178,7 @@ def build_context_prompt(context: ResolvedContext, target_code: str, source_code
     payload['professional_profiles'] = [profile.model_dump() for profile in context.profiles]
     return (
         SPECIALIST_ASSIGNMENT_PREFIX
-        'Act as an expert website/UI localization translator specializing in the '
+        + 'Act as an expert website/UI localization translator specializing in the '
         'most specific professional profile below. The source strings are ENGLISH; '
         'write in the REQUESTED TARGET LANGUAGE, using natural specialist vocabulary '
         'of that language, regardless of which language is requested. '
