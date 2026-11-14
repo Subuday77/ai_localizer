@@ -77,7 +77,8 @@ def _build_review_prompt(
         'Allowed type: meaning, omission, addition, context_mismatch, '
         'terminology, style, format, other. Allowed severity: critical, high, '
         'medium, low. For no issues return {"issues":[]}. Maximum 50 issues. '
-        'Use strings for all fields, except context_rule_id may be null. '
+        'item_index must be an integer array position. Other fields are strings, '
+        'except context_rule_id may be null. '
         'Review payload: ' + json.dumps(payload, ensure_ascii=False)
     )
 
