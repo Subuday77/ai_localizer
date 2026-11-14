@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     localizer_require_api_key: bool = False
     localizer_api_key_hashes: list[str] = Field(default_factory=list)
 
+    # Explicit opt-in for the public, cost-bounded Render-hosted demo.
+    localizer_demo_enabled: bool = False
+    localizer_demo_db_path: str = "/var/lib/localizer-demo/requests.sqlite3"
+    localizer_demo_daily_limit: int = Field(default=20, ge=1, le=500)
+    localizer_demo_per_ip_hour_limit: int = Field(default=3, ge=1, le=50)
+
     cors_origins: list[str] = Field(default_factory=list)
     host: str = '127.0.0.1'
     port: int = 8080
