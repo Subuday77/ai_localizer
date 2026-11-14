@@ -5,7 +5,14 @@ import logging
 import secrets
 import time
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from starlette.concurrency import run_in_threadpool
+from sqlalchemy.exc import SQLAlchemyError
+
+from ..contexts.repository import (
+    ContextNotFoundError, ContextUnavailableError, InvalidContextDataError,
+    build_context_prompt, list_public_contexts, resolve_context,
+)
 
 from ..auth import require_api_key
 
@@ -46,6 +53,20 @@ def languages() -> dict[str, str]:
     return LANGUAGES
 
 
+@router.get('/contexts', tags=['Localization'])
+def contexts(settings: Settings = Depends(get_settings)) -> dict:
+    """List public published contexts without invoking any AI model."""
+    try:
+        return {'contexts': list_public_contexts(
+            settings.localizer_database_url, settings.localizer_database_password,
+        )}
+    except ContextUnavailableError:
+        raise HTTPException(status_code=503, detail='Context catalog is not configured')
+    except (SQLAlchemyError, InvalidContextDataError):
+        logger.exception('Context catalog database unavailable')
+        raise HTTPException(status_code=503, detail='Context catalog unavailable')
+
+
 @router.post('/translate', response_model=TranslateResponse, tags=['Localization'], dependencies=[Depends(require_api_key)])
 async def translate(
     request: TranslateRequest,
@@ -63,6 +84,24 @@ async def translate(
     log_target = target_code if target_code in LANGUAGES else (
         'custom' if custom_language else 'unknown'
     )
+    resolved_context = None
+    if request.context_id:
+        try:
+            resolved_context = await run_in_threadpool(
+                resolve_context,
+                settings.localizer_database_url,
+                request.context_id,
+                request.context_version,
+                settings.localizer_database_password,
+            )
+        except ContextNotFoundError:
+            raise HTTPException(status_code=422, detail='Unknown or unpublished context/version')
+        except ContextUnavailableError:
+            raise HTTPException(status_code=503, detail='Context catalog is not configured')
+        except (SQLAlchemyError, InvalidContextDataError):
+            logger.exception('Context resolution failed: id=%s', request_id)
+            raise HTTPException(status_code=503, detail='Context catalog unavailable')
+
     keys_count = len(request.dictionary)
     total_chars = sum(len(value) for value in request.dictionary.values())
     logger.info(
@@ -71,6 +110,9 @@ async def translate(
     )
 
     def finished(result: TranslateResponse, outcome: str) -> TranslateResponse:
+        if resolved_context is not None:
+            result.context_id = resolved_context.context_id
+            result.context_version = resolved_context.version
         logger.info(
             'Translation request completed: id=%s target=%s outcome=%s '
             'fallback=%s keys=%d duration_ms=%d',
@@ -116,9 +158,21 @@ async def translate(
             target_language = (
                 f'{recognition.language} (language code: {recognition.language_code})'
             )
-            translated = await translate_values(values, target_language, settings)
+            context_prompt = (
+                build_context_prompt(resolved_context, recognition.language_code)
+                if resolved_context else None
+            )
+            translated = await translate_values(
+                values, target_language, settings, context_prompt=context_prompt,
+            )
         else:
-            translated = await translate_values(values, language, settings)
+            context_prompt = (
+                build_context_prompt(resolved_context, target_code)
+                if resolved_context else None
+            )
+            translated = await translate_values(
+                values, language, settings, context_prompt=context_prompt,
+            )
             response_language = language
 
         return finished(TranslateResponse(
