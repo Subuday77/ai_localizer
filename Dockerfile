@@ -14,6 +14,9 @@ RUN python -m pip install --no-cache-dir -r requirements.txt \
     && install -d -o 10001 -g 10001 /var/lib/localizer-demo
 
 COPY --chown=10001:10001 app/ ./app/
+COPY --chown=10001:10001 migrations/ ./migrations/
+COPY --chown=10001:10001 scripts/ ./scripts/
+COPY --chown=10001:10001 alembic.ini ./alembic.ini
 
 USER 10001:10001
 EXPOSE 8080
