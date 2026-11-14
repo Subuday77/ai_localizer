@@ -1,5 +1,7 @@
 """Pydantic request and response contracts exposed by the API."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -21,6 +23,7 @@ class TranslateRequest(BaseModel):
         pattern=r'^[a-z][a-z0-9_-]*$',
     )
     context_version: int | None = Field(default=None, ge=1)
+    quality_mode: Literal['standard', 'verified'] = 'standard'
 
     @model_validator(mode='after')
     def check_language(self):
