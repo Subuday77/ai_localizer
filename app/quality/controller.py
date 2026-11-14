@@ -60,6 +60,13 @@ def _build_review_prompt(
             'style': context.style,
             'professional_profiles': [p.model_dump() for p in context.profiles],
         }
+    domain_guidance = (
+        'The source dictionary belongs to the selected professional domain by '
+        'default. Evaluate ambiguous short strings using that specialist sense '
+        'unless the English source clearly indicates a different interpretation. '
+        if context is not None and context.profiles else
+        'Context is a hint; use it only when the source meaning supports it. '
+    )
     payload = {
         'source_language': 'en', 'target_language': target_language,
         'source_strings': original, 'translated_strings': translated,
@@ -69,8 +76,9 @@ def _build_review_prompt(
         'You are an independent translation quality controller. Assess whether '
         'each target-language string faithfully conveys its corresponding source '
         'string. Evaluate meaning, omissions/additions, terminology, the semantic '
-        'applicability of context rules, tone and placeholders. Context is a hint; '
-        'do NOT demand a terminology substitution that contradicts an unambiguous '
+        'applicability of context rules, tone and placeholders. '
+        + domain_guidance +
+        'Do NOT demand a terminology substitution that contradicts an unambiguous '
         'source sentence. Report only concrete errors, not invented issues. '
         'Output ONLY valid JSON in this exact shape: {"issues":[{"type":"meaning",'
         '"severity":"high","item_index":0,"source_span":"...","translated_span":"...",'
