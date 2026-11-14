@@ -1,5 +1,18 @@
 # Localizer 2.0 — implementation status (14 November 2026)
 
+## New in the professional-context iteration (15 November 2026)
+
+A non-destructive `0002_domain_profiles` migration adds version-pinned,
+language-neutral specialist profiles. Six contexts (Technology, Electronics,
+Software, Railway, Music, Military) can be published at v2 through
+`python -m scripts.publish_professional_profiles` after
+`alembic upgrade head`. Their v1 snapshots and old prompt semantics remain
+addressable with `context_version=1`. The source language remains English and
+the translator localizes website/UI dictionaries into any requested target
+language. No per-word rule was added for `bus` or `note`. See
+[professional profile rollout and local A/B tests](PROFESSIONAL_CONTEXT_PROFILES.md).
+Production and real-model A/B validation remain outstanding.
+
 This branch is **not a production release**. It is based on `feature/vps-public-demo-20261114`, preserving the working Render Static Site → VPS public demo, the protected `/translate` API, and current auth/fallback behavior. Do not merge it into legacy `master` or deploy it directly over the VPS service until the remaining gates are met.
 
 ## Delivered in this branch
@@ -9,7 +22,7 @@ This branch is **not a production release**. It is based on `feature/vps-public-
 - Read-only `GET /contexts` with **published public** context metadata; not dependent on AI calls.
 - Additive `POST /translate` fields `context_id` and `context_version`. Both are optional; requests without them take the legacy translation path. Unknown/unpublished IDs and versions return HTTP 422; unconfigured DB yields 503 for context requests. The resolved ID/version are included in the result.
 - Contextual disambiguation and terminology guidance passed **only** with an explicitly selected context. Relevant rules are filtered to the source→target language pair. A context must never force a mechanical substitution against the meaning of the sentence.
-- Five seed contexts: `technology`, `electronics`, `railway`, `music`, `software`. These are examples, **not** the final 50–100-context library.
+- Six seed contexts: `technology`, `electronics`, `railway`, `music`, `software`, `military`. These are examples, **not** the final 50–100-context library.
 - `quality_mode` accepts `standard` and `verified`. The latter is now implemented as an **opt-in, internal-only** quality workflow: independent controller model, validated structured issues, four-level severity scoring, bounded single repair, and independent recheck. Without explicitly configured model, scores and verified-only API key grants, it fails closed; it never silently downgrades to `standard`.
 
 ## How to initialize the experimental DB (not the production deployment yet)
