@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     localizer_demo_daily_limit: int = Field(default=20, ge=1, le=500)
     localizer_demo_per_ip_hour_limit: int = Field(default=3, ge=1, le=50)
 
+    # Optional in 1.x; required when the 2.0 catalog is enabled via Compose overlay.
+    localizer_database_url: str = ''
+    localizer_database_password: str = ''
+
     cors_origins: list[str] = Field(default_factory=list)
     host: str = '127.0.0.1'
     port: int = 8080
