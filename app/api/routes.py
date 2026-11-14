@@ -7,6 +7,8 @@ import time
 
 from fastapi import APIRouter, Depends
 
+from ..auth import require_api_key
+
 from ..config import Settings, get_settings
 from ..constants import (
     FALLBACK_MESSAGE,
@@ -44,7 +46,7 @@ def languages() -> dict[str, str]:
     return LANGUAGES
 
 
-@router.post('/translate', response_model=TranslateResponse, tags=['Localization'])
+@router.post('/translate', response_model=TranslateResponse, tags=['Localization'], dependencies=[Depends(require_api_key)])
 async def translate(
     request: TranslateRequest,
     settings: Settings = Depends(get_settings),
@@ -157,7 +159,7 @@ async def translate(
         ), 'technical_fallback')
 
 
-@router.post('/demo', response_model=TranslateResponse, tags=['Demo'])
+@router.post('/demo', response_model=TranslateResponse, tags=['Demo'], dependencies=[Depends(require_api_key)])
 async def demo(
     language_code: str = 'de',
     settings: Settings = Depends(get_settings),
