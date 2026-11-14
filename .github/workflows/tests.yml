@@ -52,4 +52,4 @@ jobs:
       - name: Seed contexts and verify pinned inheritance on PostgreSQL
         run: |
           python -m scripts.seed_contexts
-          python -c "import os; from app.contexts.repository import resolve_context, list_public_contexts; url=os.environ['LOCALIZER_DATABASE_URL']; c=resolve_context(url, 'electronics'); assert c.version == 1 and c.style['tone'] == 'precise and professional'; assert len(list_public_contexts(url)) == 5"
+          python -c "import os; from app.contexts.repository import resolve_context, list_public_contexts; url=os.environ['LOCALIZER_DATABASE_URL']; c=resolve_context(url, 'electronics'); assert c.version == 1 and c.style['tone'] == 'precise and professional'; assert len(list_public_contexts(url)) == 6 and resolve_context(url, 'military').rules[0].preferred == 'наградные планки'"
