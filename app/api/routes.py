@@ -162,17 +162,23 @@ async def translate(
                 build_context_prompt(resolved_context, recognition.language_code)
                 if resolved_context else None
             )
-            translated = await translate_values(
-                values, target_language, settings, context_prompt=context_prompt,
-            )
+            if context_prompt is None:
+                translated = await translate_values(values, target_language, settings)
+            else:
+                translated = await translate_values(
+                    values, target_language, settings, context_prompt=context_prompt,
+                )
         else:
             context_prompt = (
                 build_context_prompt(resolved_context, target_code)
                 if resolved_context else None
             )
-            translated = await translate_values(
-                values, language, settings, context_prompt=context_prompt,
-            )
+            if context_prompt is None:
+                translated = await translate_values(values, language, settings)
+            else:
+                translated = await translate_values(
+                    values, language, settings, context_prompt=context_prompt,
+                )
             response_language = language
 
         return finished(TranslateResponse(
