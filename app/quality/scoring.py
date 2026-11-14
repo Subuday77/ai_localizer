@@ -14,8 +14,8 @@ def score_assessment(
     suggestions appear in the report but cannot independently trigger repair.
     The total displayed score contains all severities for diagnostics.
     """
-    unique: list[QualityIssue] = []
-    seen: set[tuple] = set()
+    unique_by_key: dict[tuple, QualityIssue] = {}
+    severity_rank = {'low': 0, 'medium': 1, 'high': 2, 'critical': 3}
     for issue in assessment.issues:
         key = (
             issue.type,
@@ -23,10 +23,11 @@ def score_assessment(
             issue.translated_span.casefold().strip(),
             issue.context_rule_id,
         )
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(issue)
+        current = unique_by_key.get(key)
+        # Never allow an earlier lower-severity duplicate to mask a hard stop.
+        if current is None or severity_rank[issue.severity] > severity_rank[current.severity]:
+            unique_by_key[key] = issue
+    unique = list(unique_by_key.values())
 
     score = sum(weights[issue.severity] for issue in unique)
     medium_score = sum(weights['medium'] for issue in unique if issue.severity == 'medium')
