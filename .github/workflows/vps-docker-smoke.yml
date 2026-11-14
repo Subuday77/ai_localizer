@@ -16,7 +16,10 @@ jobs:
 
       - name: Start API without OpenAI credentials
         run: |
+          digest="$(printf '%s' 'ci-only-fake-key-not-for-production' | sha256sum | cut -d' ' -f1)"
           docker run -d --name localizer-ci \
+            -e LOCALIZER_REQUIRE_API_KEY=true \
+            -e "LOCALIZER_API_KEY_HASHES=[\"$digest\"]" \
             -e 'CORS_ORIGINS=["https://ai-localizer.onrender.com"]' \
             -p 127.0.0.1:18080:8080 ai-localizer:ci
           ready=0
@@ -35,7 +38,12 @@ jobs:
             python -c 'import json,sys; assert json.load(sys.stdin) == {"status": "ok"}'
           curl --fail --silent http://127.0.0.1:18080/languages | \
             python -c 'import json,sys; assert json.load(sys.stdin)["ru"] == "Русский"'
+          unauthorized="$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST http://127.0.0.1:18080/translate \
+            -H 'Content-Type: application/json' \
+            --data '{"dictionary":{"x":"Hello"},"language_code":"en"}')"
+          test "$unauthorized" = "401"
           curl --fail --silent -X POST http://127.0.0.1:18080/translate \
+            -H 'Authorization: Bearer ci-only-fake-key-not-for-production' \
             -H 'Content-Type: application/json' \
             --data '{"dictionary":{"x":"Hello {name}"},"language_code":"en"}' | \
             python -c 'import json,sys; d=json.load(sys.stdin); assert d["dictionary"] == {"x":"Hello {name}"} and d["fallback"] is False'
