@@ -50,6 +50,13 @@ class Settings(BaseSettings):
     localizer_database_url: str = ''
     localizer_database_password: str = ''
 
+    # Verified mode is internal-only until API entitlements/billing are designed.
+    # No model ID or scoring values are invented as defaults.
+    localizer_qa_verified_enabled: bool = False
+    localizer_qa_controller_model_id: str = ''
+    localizer_qa_penalty_weights: dict[str, int] = Field(default_factory=dict)
+    localizer_qa_repair_threshold: int | None = Field(default=None, gt=0)
+
     cors_origins: list[str] = Field(default_factory=list)
     host: str = '127.0.0.1'
     port: int = 8080
