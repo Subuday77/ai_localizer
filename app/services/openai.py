@@ -28,6 +28,10 @@ LANGUAGE_CODE = re.compile(r'^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$')
 T = TypeVar('T')
 
 
+class ModelIdentityMismatchError(RuntimeError):
+    """Stop immediately when the provider returns an unexpected model ID."""
+
+
 class InvalidModelJSONError(ValueError):
     """Raised when OpenAI returns text that cannot be parsed as JSON."""
 
@@ -406,13 +410,13 @@ async def _request_with_retries(
                 response_model = response_data.get('model')
                 if operation == 'quality review' and response_model != model:
                     # A provider alias/mismatch cannot be accepted as an independent check.
-                    raise ValueError('Independent controller response model identity mismatch')
+                    raise ModelIdentityMismatchError('Independent controller response model identity mismatch')
                 if (
                     operation == 'translation'
                     and settings.localizer_qa_verified_enabled
                     and response_model == settings.localizer_qa_controller_model_id
                 ):
-                    raise ValueError('Translator response unexpectedly used controller model')
+                    raise ModelIdentityMismatchError('Translator response unexpectedly used controller model')
                 if not isinstance(response_model, str) or not response_model:
                     response_model = model
                 logger.info(
