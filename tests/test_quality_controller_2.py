@@ -39,7 +39,7 @@ def settings(**overrides):
 
 def issue(severity, reason='Example issue'):
     return QualityIssue(
-        type='terminology', severity=severity,
+        type='terminology', severity=severity, item_index=0,
         source_span='conductor', translated_span='проводник', reason=reason,
     )
 
@@ -68,7 +68,7 @@ def test_severity_scoring_and_highest_duplicate_wins():
     two_medium = score_assessment(
         ControllerAssessment(issues=[
             issue('medium'),
-            QualityIssue(type='style', severity='medium', reason='Wrong tone'),
+            QualityIssue(type='style', severity='medium', item_index=0, reason='Wrong tone'),
         ]), weights, threshold,
     )
     assert two_medium.penalty_score == 12 and two_medium.requires_repair
