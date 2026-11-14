@@ -47,6 +47,8 @@ class ContextVersion(Base):
     rules: Mapped[list] = mapped_column(JSON_DOCUMENT, nullable=False, default=list)
     glossary: Mapped[list] = mapped_column(JSON_DOCUMENT, nullable=False, default=list)
     style: Mapped[dict] = mapped_column(JSON_DOCUMENT, nullable=False, default=dict)
+    # Versioned specialization. NULL preserves historical v1 prompt behavior.
+    domain_profile: Mapped[dict | None] = mapped_column(JSON_DOCUMENT, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False,
         default=lambda: datetime.now(timezone.utc),
