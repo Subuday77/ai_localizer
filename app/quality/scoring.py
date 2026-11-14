@@ -18,6 +18,7 @@ def score_assessment(
     severity_rank = {'low': 0, 'medium': 1, 'high': 2, 'critical': 3}
     for issue in assessment.issues:
         key = (
+            issue.item_index,
             issue.type,
             issue.source_span.casefold().strip(),
             issue.translated_span.casefold().strip(),
