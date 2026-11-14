@@ -9,6 +9,8 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+from app.constants import SPECIALIST_ASSIGNMENT_PREFIX
+
 from .models import Context, ContextVersion
 
 
@@ -175,7 +177,7 @@ def build_context_prompt(context: ResolvedContext, target_code: str, source_code
 
     payload['professional_profiles'] = [profile.model_dump() for profile in context.profiles]
     return (
-        '\nProfessional domain localization assignment: '
+        SPECIALIST_ASSIGNMENT_PREFIX
         'Act as an expert website/UI localization translator specializing in the '
         'most specific professional profile below. The source strings are ENGLISH; '
         'write in the REQUESTED TARGET LANGUAGE, using natural specialist vocabulary '
