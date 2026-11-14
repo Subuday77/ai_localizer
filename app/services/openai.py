@@ -270,6 +270,7 @@ def build_request_payload(
     prompt: str,
     max_tokens: int,
     reasoning_effort: str,
+    system_prompt: str = SYSTEM_PROMPT,
 ) -> dict:
     """Build the OpenAI chat-completions request body.
 
@@ -282,7 +283,7 @@ def build_request_payload(
     return {
         'model': model,
         'messages': [
-            {'role': 'system', 'content': SYSTEM_PROMPT},
+            {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': prompt},
         ],
         'max_completion_tokens': max_tokens,
@@ -309,6 +310,7 @@ async def _request_with_retries(
     parser: Callable[[str], T],
     operation: str,
     force_fallback_model: bool = False,
+    system_prompt: str = SYSTEM_PROMPT,
 ) -> T:
     """Run one OpenAI operation with validation, retries and fallback-model switching.
 
@@ -359,6 +361,7 @@ async def _request_with_retries(
                     prompt=prompt_builder(json_retry_required),
                     max_tokens=max_tokens,
                     reasoning_effort=settings.openai_reasoning_effort,
+                    system_prompt=system_prompt,
                 )
                 response = await client.post(
                     url,
