@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     # No model ID or scoring values are invented as defaults.
     localizer_qa_verified_enabled: bool = False
     localizer_qa_controller_model_id: str = ''
+    # Separate hashes grant access to internal verified mode; ordinary API keys cannot use it.
+    localizer_qa_verified_api_key_hashes: list[str] = Field(default_factory=list)
     localizer_qa_penalty_weights: dict[str, int] = Field(default_factory=dict)
     localizer_qa_repair_threshold: int | None = Field(default=None, gt=0)
 
@@ -64,7 +66,7 @@ class Settings(BaseSettings):
     @model_validator(mode='after')
     def validate_api_key_configuration(self):
         """Reject malformed hashes and fail closed when authentication is required."""
-        for digest in self.localizer_api_key_hashes:
+        for digest in self.localizer_api_key_hashes + self.localizer_qa_verified_api_key_hashes:
             if re.fullmatch(r'[0-9a-f]{64}', digest) is None:
                 raise ValueError('LOCALIZER_API_KEY_HASHES must contain lowercase SHA-256 hex digests')
         if self.localizer_require_api_key and not self.localizer_api_key_hashes:
