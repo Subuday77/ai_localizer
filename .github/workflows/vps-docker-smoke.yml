@@ -1,0 +1,53 @@
+name: VPS Docker smoke
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build isolated Localizer API image
+        run: docker build -t ai-localizer:ci .
+
+      - name: Start API without OpenAI credentials
+        run: |
+          docker run -d --name localizer-ci \
+            -e 'CORS_ORIGINS=["https://ai-localizer.onrender.com"]' \
+            -p 127.0.0.1:18080:8080 ai-localizer:ci
+          ready=0
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/health > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" -eq 1
+
+      - name: Test health, language list, pass-through translation and CORS
+        run: |
+          curl --fail --silent http://127.0.0.1:18080/health | \
+            python -c 'import json,sys; assert json.load(sys.stdin) == {"status": "ok"}'
+          curl --fail --silent http://127.0.0.1:18080/languages | \
+            python -c 'import json,sys; assert json.load(sys.stdin)["ru"] == "Русский"'
+          curl --fail --silent -X POST http://127.0.0.1:18080/translate \
+            -H 'Content-Type: application/json' \
+            --data '{"dictionary":{"x":"Hello {name}"},"language_code":"en"}' | \
+            python -c 'import json,sys; d=json.load(sys.stdin); assert d["dictionary"] == {"x":"Hello {name}"} and d["fallback"] is False'
+          curl --fail --silent -D - -o /dev/null -X OPTIONS http://127.0.0.1:18080/translate \
+            -H 'Origin: https://ai-localizer.onrender.com' \
+            -H 'Access-Control-Request-Method: POST' | \
+            grep -i 'access-control-allow-origin: https://ai-localizer.onrender.com'
+
+      - name: Print container logs on failure
+        if: failure()
+        run: docker logs localizer-ci || true
+
+      - name: Remove test container
+        if: always()
+        run: docker rm -f localizer-ci || true
