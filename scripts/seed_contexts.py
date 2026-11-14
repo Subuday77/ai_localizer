@@ -50,6 +50,21 @@ STARTER_CONTEXTS = [
         }],
     },
     {
+        'id': 'military', 'title': 'Military',
+        'description': 'Military personnel, ranks, uniforms, decorations and service terminology.',
+        'parent': None, 'style': {'tone': 'precise and professional'},
+        'rules': [{
+            'id': 'military-fruit-salad', 'source_language': 'en', 'target_language': 'ru',
+            'term': 'fruit salad', 'preferred': 'наградные планки',
+            'when': 'The expression is military slang for the colorful ribbons or decorations '
+                    'worn on a service member\'s uniform or chest, e.g. a colonel '
+                    'having fruit salad on his chest.',
+            'note': 'Use natural Russian for the sentence: наградные планки, орденские '
+                    'ленты or награды as appropriate. A literal edible fruit salad '
+                    'must still be translated as фруктовый салат.',
+        }],
+    },
+    {
         'id': 'software', 'title': 'Software',
         'description': 'Operating systems, applications and software interfaces.',
         'parent': 'technology', 'style': {},
