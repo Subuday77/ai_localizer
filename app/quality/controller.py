@@ -11,6 +11,14 @@ from app.services.openai import _load_model_json, _request_with_retries
 from .schemas import ControllerAssessment
 
 
+QA_SYSTEM_PROMPT = (
+    'You are an independent translation quality auditor, not a translator. '
+    'Critically compare source and candidate translation using relevant context. '
+    'Respond with only the required structured JSON issues object. '
+    'Do not rewrite the translation or invent unsupported problems.'
+)
+
+
 class QualityConfigurationError(RuntimeError):
     pass
 
@@ -92,9 +100,10 @@ async def review(
     return await _request_with_retries(
         controller_settings,
         prompt_builder=lambda retry: prompt + (
-            '\\nPrevious review was invalid JSON; return the same assessment '
+            '\nPrevious review was invalid JSON; return the same assessment '
             'as a valid JSON object without extra keys.' if retry else ''
         ),
         parser=parse,
         operation='quality review',
+        system_prompt=QA_SYSTEM_PROMPT,
     )
