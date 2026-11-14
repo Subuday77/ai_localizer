@@ -24,6 +24,9 @@ def settings(**overrides):
         openai_fallback_model_id='translator-fallback',
         localizer_qa_verified_enabled=True,
         localizer_qa_controller_model_id='controller-b',
+        localizer_qa_verified_api_key_hashes=[
+            hashlib.sha256(b'qa-test-token-not-real').hexdigest(),
+        ],
         # Explicit *test* fixture weights, not production defaults.
         localizer_qa_penalty_weights={
             'critical': 40, 'high': 20, 'medium': 6, 'low': 1,
@@ -48,6 +51,8 @@ def test_controller_must_differ_from_both_translator_and_fallback():
             require_independent_controller(settings(localizer_qa_controller_model_id=model))
     with pytest.raises(QualityConfigurationError, match='disabled'):
         require_independent_controller(settings(localizer_qa_verified_enabled=False))
+    with pytest.raises(QualityConfigurationError, match='grants'):
+        require_independent_controller(settings(localizer_qa_verified_api_key_hashes=[]))
     with pytest.raises(QualityConfigurationError, match='all severity'):
         require_independent_controller(settings(localizer_qa_penalty_weights={}))
     with pytest.raises(QualityConfigurationError, match='threshold'):
@@ -246,3 +251,13 @@ def test_verified_api_does_not_fallback_to_unverified_text(monkeypatch):
     }, settings())
     assert r.status_code == 503
     assert 'dictionary' not in r.json()
+
+
+def test_verified_rejects_general_api_key_without_verified_grant():
+    r = api({
+        'dictionary': {'a': 'Hello'}, 'language_code': 'de',
+        'quality_mode': 'verified',
+    }, settings(localizer_qa_verified_api_key_hashes=[
+        hashlib.sha256(b'some-other-internal-key').hexdigest(),
+    ]))
+    assert r.status_code == 403
