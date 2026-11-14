@@ -404,6 +404,15 @@ async def _request_with_retries(
                 # source strings, translated content and credentials out of logs.
                 validated_result = parser(raw_content)
                 response_model = response_data.get('model')
+                if operation == 'quality review' and response_model != model:
+                    # A provider alias/mismatch cannot be accepted as an independent check.
+                    raise ValueError('Independent controller response model identity mismatch')
+                if (
+                    operation == 'translation'
+                    and settings.localizer_qa_verified_enabled
+                    and response_model == settings.localizer_qa_controller_model_id
+                ):
+                    raise ValueError('Translator response unexpectedly used controller model')
                 if not isinstance(response_model, str) or not response_model:
                     response_model = model
                 logger.info(
