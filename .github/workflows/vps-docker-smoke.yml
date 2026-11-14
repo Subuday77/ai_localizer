@@ -2,7 +2,7 @@ name: VPS Docker smoke
 
 on:
   pull_request:
-    branches: [master]
+    branches: [master, feature/vps-migration-isolated-20261114]
   workflow_dispatch:
 
 jobs:

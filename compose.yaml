@@ -11,8 +11,13 @@ services:
     # Fail closed for VPS: the container refuses to start without key hashes.
     environment:
       LOCALIZER_REQUIRE_API_KEY: "true"
+      # Off by default. Enable only after configuring Caddy and CORS.
+      LOCALIZER_DEMO_ENABLED: "${LOCALIZER_DEMO_ENABLED:-false}"
+      LOCALIZER_DEMO_DB_PATH: "/var/lib/localizer-demo/requests.sqlite3"
     ports:
       - "127.0.0.1:18080:8080"
+    volumes:
+      - localizer_demo_quota:/var/lib/localizer-demo
     restart: unless-stopped
     init: true
     read_only: true
@@ -51,3 +56,7 @@ networks:
   quiz_localizer:
     external: true
     name: ai-localizer-clients
+
+volumes:
+  # Persist demo request counters across recreates/restarts.
+  localizer_demo_quota:

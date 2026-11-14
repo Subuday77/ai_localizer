@@ -10,7 +10,8 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir -r requirements.txt \
-    && useradd --system --uid 10001 --create-home localizer
+    && useradd --system --uid 10001 --create-home localizer \
+    && install -d -o 10001 -g 10001 /var/lib/localizer-demo
 
 COPY --chown=10001:10001 app/ ./app/
 
