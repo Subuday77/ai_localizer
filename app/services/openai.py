@@ -375,12 +375,13 @@ async def _request_with_retries(
 
                 reason = choice.get('finish_reason')
                 if reason == 'length':
-                    logger.warning(
-                        'OpenAI raw truncated response, operation=%s model=%s: %r',
-                        operation,
-                        model,
-                        raw_content[:settings.openai_raw_response_log_chars],
-                    )
+                    if operation != 'quality review':
+                        logger.warning(
+                            'OpenAI raw truncated response, operation=%s model=%s: %r',
+                            operation,
+                            model,
+                            raw_content[:settings.openai_raw_response_log_chars],
+                        )
                     if operation == 'translation' and _has_repetition_loop(raw_content):
                         logger.warning(
                             'OpenAI repetition loop detected, operation=%s model=%s',
@@ -461,7 +462,8 @@ async def _request_with_retries(
                 if isinstance(exc, InvalidModelJSONError):
                     json_retry_required = True
 
-                if isinstance(exc, InvalidModelJSONError) and raw_content is not None:
+                if (operation != 'quality review' and
+                        isinstance(exc, InvalidModelJSONError) and raw_content is not None):
                     logger.warning(
                         'OpenAI raw response after invalid JSON, operation=%s model=%s: %r',
                         operation,
