@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - master
+      - feature/vps-migration-isolated-20261114
 
 jobs:
   tests:
