@@ -55,15 +55,16 @@ class ResolvedContext:
 
 
 @lru_cache(maxsize=8)
-def engine_for_url(database_url: str) -> Engine:
+def engine_for_url(database_url: str, database_password: str = '') -> Engine:
     if not database_url:
         raise ContextUnavailableError('Context database is not configured')
-    return create_engine(database_url, pool_pre_ping=True)
+    kwargs = {'password': database_password} if database_password else {}
+    return create_engine(database_url, pool_pre_ping=True, connect_args=kwargs)
 
 
-def list_public_contexts(database_url: str) -> list[dict]:
+def list_public_contexts(database_url: str, database_password: str = '') -> list[dict]:
     """Return published public metadata; never disclose private/draft contexts."""
-    with Session(engine_for_url(database_url)) as session:
+    with Session(engine_for_url(database_url, database_password)) as session:
         rows = session.scalars(
             select(Context).where(
                 Context.is_public.is_(True),
@@ -77,9 +78,12 @@ def list_public_contexts(database_url: str) -> list[dict]:
         ]
 
 
-def resolve_context(database_url: str, context_id: str, version: int | None = None) -> ResolvedContext:
+def resolve_context(
+    database_url: str, context_id: str, version: int | None = None,
+    database_password: str = '',
+) -> ResolvedContext:
     """Resolve exact immutable ancestor versions, overriding rules by stable rule ID."""
-    with Session(engine_for_url(database_url)) as session:
+    with Session(engine_for_url(database_url, database_password)) as session:
         root = session.get(Context, context_id)
         if not root or not root.is_public or root.published_version is None:
             raise ContextNotFoundError('Context is not available')
