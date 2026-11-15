@@ -19,6 +19,8 @@ from ..constants import (
     JSON_RETRY_PROMPT,
     REPETITION_RETRY_PROMPT,
     SYSTEM_PROMPT,
+    SEMANTIC_ASSIGNMENT_PREFIX,
+    SEMANTIC_SYSTEM_PROMPT,
     SPECIALIST_ASSIGNMENT_PREFIX,
     SPECIALIST_SYSTEM_PROMPT,
     USER_PROMPT,
@@ -566,7 +568,9 @@ async def _translate_batch(
         operation='translation',
         force_fallback_model=force_fallback_model,
         system_prompt=(
-            SPECIALIST_SYSTEM_PROMPT
+            SEMANTIC_SYSTEM_PROMPT
+            if (context_prompt or '').startswith(SEMANTIC_ASSIGNMENT_PREFIX)
+            else SPECIALIST_SYSTEM_PROMPT
             if (context_prompt or '').startswith(SPECIALIST_ASSIGNMENT_PREFIX)
             else SYSTEM_PROMPT
         ),
