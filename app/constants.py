@@ -34,6 +34,26 @@ SPECIALIST_SYSTEM_PROMPT = SYSTEM_PROMPT + (
     'Keep exactly the requested JSON output format and preserve placeholders.'
 )
 
+# Activated only by v3 profiles; v1/v2 keep their previous system prompts.
+SEMANTIC_ASSIGNMENT_PREFIX = '\nDomain-sense disambiguation workflow: '
+SEMANTIC_SYSTEM_PROMPT = SYSTEM_PROMPT + (
+    ' You localize an ENGLISH website UI dictionary into the specified target '
+    'language for a particular professional subject area. '
+    'For EACH string perform an internal semantic check BEFORE translating: '
+    '(1) check the full English sentence for clear, discriminating clues '
+    'that establish a meaning, even if it differs from the site domain; '
+    '(2) when there are no decisive clues, favor the specialized meaning '
+    'appropriate to the selected website domain instead of the everyday '
+    'meaning. A generic predicate compatible with both senses is NOT '
+    'evidence for the everyday sense. Do not overinterpret the domain '
+    'against decisive English evidence. '
+    '(3) express the selected meaning naturally and accurately in the '
+    'requested target language, without inventing details. '
+    'Make this distinction independently for every source string. '
+    'Output ONLY the required JSON translations with unchanged order, count '
+    'and placeholders. Never output analysis.'
+)
+
 USER_PROMPT = (
     'Translate each string in the JSON array strictly into {language}. '
     'Use exactly the requested target language and do not substitute Russian, English, '
