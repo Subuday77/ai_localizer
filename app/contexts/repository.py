@@ -3,13 +3,14 @@
 import json
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import create_engine, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from app.constants import SPECIALIST_ASSIGNMENT_PREFIX
+from app.constants import SEMANTIC_ASSIGNMENT_PREFIX, SPECIALIST_ASSIGNMENT_PREFIX
 
 from .models import Context, ContextVersion
 
@@ -45,6 +46,8 @@ class DomainProfile(BaseModel):
     scope: str = Field(min_length=10, max_length=1200)
     audience: str = Field(default='', max_length=400)
     conventions: str = Field(default='', max_length=800)
+    # Added in v3; NULL for existing v2 profiles so their prompts stay byte-identical.
+    interpretation_method: Literal['evidence_before_domain'] | None = None
 
 
 class GlossaryEntry(BaseModel):
@@ -175,7 +178,39 @@ def build_context_prompt(context: ResolvedContext, target_code: str, source_code
             'Keep the exact output JSON-array contract.'
         )
 
-    payload['professional_profiles'] = [profile.model_dump() for profile in context.profiles]
+    # exclude_none leaves the serialized v2 profiles byte-for-byte unchanged.
+    payload['professional_profiles'] = [
+        profile.model_dump(exclude_none=True) for profile in context.profiles
+    ]
+    if context.profiles[-1].interpretation_method == 'evidence_before_domain':
+        return (
+            SEMANTIC_ASSIGNMENT_PREFIX
+            + 'For EACH English website/UI source string, silently resolve its '
+            'meaning BEFORE choosing the target-language words. '
+            'First inspect the whole English string for genuinely decisive '
+            'sense evidence: the action, objects, relationships, and collocations. '
+            'Evidence is decisive only when it actually distinguishes meanings; '
+            'generic states or verbs compatible with both senses are not decisive. '
+            'When explicit evidence clearly establishes an interpretation, '
+            'honor that meaning EVEN IF it is outside the website domain. '
+            'If the string is ambiguous, short, or lacks such decisive evidence, '
+            'assume it belongs to the selected PROFESSIONAL DOMAIN of the site. '
+            'Prefer the specialist sense in that domain over a common everyday '
+            'sense; do not privilege the statistically common meaning by default. '
+            'Use the most specific profile first and inherit broader expertise. '
+            'Then localize the chosen sense into the REQUESTED TARGET LANGUAGE '
+            'with established natural professional vocabulary. Never assume '
+            'the target is Russian. Do not add explanations, guess missing '
+            'technical specifications, or force terminology where strong source '
+            'evidence contradicts it. Resolve each dictionary entry individually '
+            'without inventing a relationship between unrelated labels. '
+            'Keep placeholders, count, order, and exact JSON-array output. '
+            '\nVersion-pinned subject-area profiles and optional terminology (JSON data): '
+            + json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
+            + '\\nApply any pair-specific glossary or rule only where its stated '
+            'condition really fits. Do not reveal your analysis. '
+            'Return translations as the exact required JSON array.'
+        )
     return (
         SPECIALIST_ASSIGNMENT_PREFIX
         + 'Act as an expert website/UI localization translator specializing in the '
