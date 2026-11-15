@@ -97,7 +97,7 @@ def publish(session: Session) -> int:
     """Create missing v2 snapshots and advance each catalog pointer exactly once."""
     activated = 0
     for context_id, raw_profile in PROFESSIONAL_PROFILES:
-        profile = DomainProfile.model_validate(raw_profile).model_dump()
+        profile = DomainProfile.model_validate(raw_profile).model_dump(exclude_none=True)
         context = session.get(Context, context_id)
         original = session.get(ContextVersion, (context_id, 1))
         if context is None or original is None or original.status != 'published':
