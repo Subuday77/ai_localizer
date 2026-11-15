@@ -58,15 +58,28 @@ def _build_review_prompt(
             'rules': [r.model_dump() for r in context.rules],
             'glossary': [g.model_dump() for g in context.glossary],
             'style': context.style,
-            'professional_profiles': [p.model_dump() for p in context.profiles],
+            'professional_profiles': [p.model_dump(exclude_none=True) for p in context.profiles],
         }
-    domain_guidance = (
-        'The source dictionary belongs to the selected professional domain by '
-        'default. Evaluate ambiguous short strings using that specialist sense '
-        'unless the English source clearly indicates a different interpretation. '
-        if context is not None and context.profiles else
-        'Context is a hint; use it only when the source meaning supports it. '
-    )
+    # Use the same versioned disambiguation policy as the translator.
+    if (context is not None and context.profiles and
+            context.profiles[-1].interpretation_method == 'evidence_before_domain'):
+        domain_guidance = (
+            'Evaluate the full source sentence for decisive semantic evidence. '
+            'A general predicate compatible with both meanings does not establish '
+            'the everyday interpretation. If the source clearly selects a sense '
+            'outside the domain, honor that sense. Otherwise, use the selected '
+            'professional website domain as the default for ambiguous UI strings. '
+            'Evaluate whether the target text reflects the chosen sense without '
+            'inventing details. '
+        )
+    elif context is not None and context.profiles:
+        domain_guidance = (
+            'The source dictionary belongs to the selected professional domain by '
+            'default. Evaluate ambiguous short strings using that specialist sense '
+            'unless the English source clearly indicates a different interpretation. '
+        )
+    else:
+        domain_guidance = 'Context is a hint; use it only when the source meaning supports it. '
     payload = {
         'source_language': 'en', 'target_language': target_language,
         'source_strings': original, 'translated_strings': translated,
