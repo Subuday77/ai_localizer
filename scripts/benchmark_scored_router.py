@@ -4,6 +4,7 @@ Run:
     python -m scripts.benchmark_scored_router
     python -m scripts.benchmark_scored_router --include-regression
     python -m scripts.benchmark_scored_router --runs 2
+    python -m scripts.benchmark_scored_router --case a_pitch_rose
 
 All twenty context definitions are read from the original six published
 PostgreSQL contexts plus fourteen IN-MEMORY experiment-only profiles.
@@ -478,10 +479,6 @@ async def run_case(client, settings, case, trial, catalog):
             row['selected_meaning'] = row['senses'][i - 1]['meaning']
             return row
 
-        names = {
-            proposed['name'] for sense in row['senses']
-            for proposed in sense['proposed_contexts']
-        }
         selected, model, calls, error = await call_model(
             client, settings, SELECTOR_SCORE_PROMPT,
             selector_payload(
@@ -538,6 +535,8 @@ def main():
                      help='Also evaluate the original ten legacy cases')
     cli.add_argument('--runs', type=int, default=1,
                      help='Independent model repeats; 1..3, default 1')
+    cli.add_argument('--case', action='append', dest='case_ids',
+                     help='Run only this exact case ID; may be specified repeatedly')
     args = cli.parse_args()
     if args.runs not in (1, 2, 3):
         cli.error('--runs must be 1, 2, or 3')
@@ -548,7 +547,18 @@ def main():
         cli.exit(2, 'Missing LOCALIZER_DATABASE_URL\n')
     try:
         catalog = expand_to_20(load_catalog(settings))
-        cases = FRESH_CASES + (REGRESSION_CASES if args.include_regression else ())
+        if args.case_ids:
+            requested = set(args.case_ids)
+            all_cases = FRESH_CASES + REGRESSION_CASES
+            unknown = requested - {case.case_id for case in all_cases}
+            if unknown:
+                cli.error('Unknown case ID(s): ' + ', '.join(sorted(unknown)))
+            cases = tuple(case for case in all_cases
+                          if case.case_id in requested)
+        else:
+            cases = FRESH_CASES + (
+                REGRESSION_CASES if args.include_regression else ()
+            )
         unavailable = {c.site_context_id for c in cases} - (
             set(catalog) | set(EXTERNAL_SITE_CONTEXTS)
         )
