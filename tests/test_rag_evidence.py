@@ -362,3 +362,79 @@ def test_rag_shadow_never_changes_decision_or_prompt(index):
     assert not row['rag_gate_escalation']
     assert len(client.requests) == 1
     assert 'unverified_lexical_evidence' not in json.dumps(client.requests)
+
+
+class EmptyResponse(FakeResponse):
+    def __init__(self, status_code):
+        super().__init__({})
+        self.status_code = status_code
+
+
+class StatusClient:
+    def __init__(self, status_code):
+        self.status_code = status_code
+
+    def stream(self, *args, **kwargs):
+        return EmptyResponse(self.status_code)
+
+
+def test_online_not_found_and_rate_limit_are_distinguished(index):
+    async def query(status):
+        diagnostics = []
+        async with httpx.AsyncClient() as unused:
+            # The fake HTTP client returns a real response status, never
+            # contacts the network, and requires no API key.
+            hits, requests = await search_with_optional_online(
+                'heaving down',
+                source_language='en',
+                index=index,
+                online=True,
+                client=StatusClient(status),
+                diagnostics=diagnostics,
+            )
+        return hits, requests, diagnostics
+
+    import httpx
+    found, requests, trace = asyncio.run(query(404))
+    assert requests == 1
+    assert len(found) == 1  # local seed survives
+    assert trace == [{
+        'term': 'heaving down', 'status': 'not_found',
+        'http_status': 404, 'definitions': 0,
+    }]
+    rate_limited, requests, trace = asyncio.run(query(429))
+    assert requests == 1
+    assert len(rate_limited) == 1
+    assert trace[0]['status'] == 'rate_limited'
+
+
+def test_online_network_errors_preserve_local_results_and_explain_error(index):
+    class BrokenClient:
+        def stream(self, *args, **kwargs):
+            raise ValueError('simulated malformed response')
+
+    async def query():
+        diagnostics = []
+        hits, requests = await search_with_optional_online(
+            'heaving down', source_language='en', index=index,
+            online=True, client=BrokenClient(), diagnostics=diagnostics,
+        )
+        return hits, requests, diagnostics
+    hits, requests, diagnostics = asyncio.run(query())
+    assert requests == 1
+    assert len(hits) == 1
+    assert diagnostics[0]['status'] == 'request_error'
+    assert diagnostics[0]['error_type'] == 'ValueError'
+
+
+def test_non_english_external_dictionary_evidence_retains_language():
+    client = FakeHTTPClient(online_fixture())
+    report = []
+    results = asyncio.run(fetch_wiktionary_senses(
+        client, 'Tonhöhe', source_language='de', status_report=report,
+    ))
+    assert report[0]['status'] == 'found'
+    assert results[0]['language'] == 'de'
+    assert results[0]['definition_en'] == ''
+    assert results[0]['definition_source_language']
+    assert compact_for_model(results)[0]['language'] == 'de'
