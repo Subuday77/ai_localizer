@@ -167,6 +167,8 @@ def test_selector_validates_nearest_contexts_and_rejects_unknown_ids(db_catalog)
         parse_selector(selector_json(2, invalid), 2, catalog, names)
     with pytest.raises(ValueError, match='unrequested'):
         parse_selector(selector_json(2, mapping), 2, catalog, set())
+    with pytest.raises(ValueError, match='every proposed context'):
+        parse_selector(selector_json(2, []), 2, catalog, names)
     with pytest.raises(ValidationError):
         parse_selector(json.dumps({
             'status': 'unresolved', 'choice': 1, 'basis': 'unresolved',
