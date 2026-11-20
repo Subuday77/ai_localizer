@@ -153,7 +153,7 @@ def get_online_query_terms(source: str, local_hits: list[dict], *,
 async def fetch_wiktionary_senses(
     client: httpx.AsyncClient, word: str, *,
     source_language: str = 'en', max_bytes: int = 131072,
-    max_senses: int = 5,
+    max_senses: int = 5, status_report: list[dict] | None = None,
 ) -> list[dict]:
     """One opt-in dictionary API GET, with strict size/term and schema limits.
 
@@ -179,6 +179,14 @@ async def fetch_wiktionary_senses(
         timeout=8.0,
     ) as response:
         if response.status_code in (404, 429):
+            if status_report is not None:
+                status_report.append({
+                    'term': word,
+                    'status': ('not_found' if response.status_code == 404
+                               else 'rate_limited'),
+                    'http_status': response.status_code,
+                    'definitions': 0,
+                })
             return []
         response.raise_for_status()
         buf = bytearray()
@@ -188,6 +196,10 @@ async def fetch_wiktionary_senses(
                 raise ValueError('Wiktionary lookup exceeded 128 KiB cap')
     data = json.loads(buf)
     if not isinstance(data, dict) or not isinstance(data.get('entries'), list):
+        if status_report is not None:
+            status_report.append({
+                'term': word, 'status': 'unexpected_schema', 'definitions': 0,
+            })
         return []
     provider = data.get('source') if isinstance(data.get('source'), dict) else {}
     source_url = provider.get('url')
@@ -228,7 +240,17 @@ async def fetch_wiktionary_senses(
                 },
             })
             if len(out) >= max_senses:
+                if status_report is not None:
+                    status_report.append({
+                        'term': word, 'status': 'found', 'definitions': len(out),
+                    })
                 return out
+    if status_report is not None:
+        status_report.append({
+            'term': word,
+            'status': 'found' if out else 'no_definitions',
+            'definitions': len(out),
+        })
     return out
 
 
@@ -237,6 +259,7 @@ async def search_with_optional_online(
     online: bool = False, client: httpx.AsyncClient | None = None,
     online_cache: dict | None = None,
     max_online_terms: int = 2, limit: int = 12,
+    diagnostics: list[dict] | None = None,
 ) -> tuple[list[dict], int]:
     hits = index.search(source, source_language=source_language, limit=limit)
     count = 0
@@ -249,14 +272,32 @@ async def search_with_optional_online(
     for word in get_online_query_terms(source, hits, max_terms=max_online_terms):
         key = (source_language.split('-')[0].lower(), normalize(word))
         if key not in online_cache:
+            status_report = []
             try:
                 online_cache[key] = await fetch_wiktionary_senses(
                     client, word, source_language=source_language,
+                    status_report=status_report,
                 )
-            except (httpx.HTTPError, ValueError, json.JSONDecodeError):
+            except (httpx.HTTPError, ValueError, json.JSONDecodeError) as exc:
                 # Optional evidence must never break translation/benchmark.
                 online_cache[key] = []
+                status_report = [{
+                    'term': word, 'status': 'request_error',
+                    'error_type': type(exc).__name__,
+                    'definitions': 0,
+                }]
+            if diagnostics is not None:
+                diagnostics.extend(status_report or [{
+                    'term': word,
+                    'status': ('found' if online_cache[key] else 'no_definitions'),
+                    'definitions': len(online_cache[key]),
+                }])
             count += 1
+        elif diagnostics is not None:
+            diagnostics.append({
+                'term': word, 'status': 'cached',
+                'definitions': len(online_cache[key]),
+            })
         hits.extend(online_cache[key])
     # Prefer exact/multiword curated records, then external definitions.
     hits.sort(key=lambda e: (
