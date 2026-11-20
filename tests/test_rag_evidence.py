@@ -15,6 +15,7 @@ from scripts.rag_evidence import (
     SOURCE_LABEL, SEED_FILE, SmallConceptIndex, compact_for_model,
     evidence_gate, fetch_wiktionary_senses, get_online_query_terms,
     matched_term, search_with_optional_online,
+    english_lemma_candidate, needs_english_lemma_retry,
 )
 
 
@@ -438,3 +439,124 @@ def test_non_english_external_dictionary_evidence_retains_language():
     assert results[0]['definition_en'] == ''
     assert results[0]['definition_source_language']
     assert compact_for_model(results)[0]['language'] == 'de'
+
+
+
+class DictionaryByTerm:
+    """Deterministic stand-in for the licensed provider; no network calls."""
+    def __init__(self, responses):
+        self.responses = responses
+        self.requests = []
+
+    def stream(self, method, url, **kwargs):
+        from urllib.parse import unquote
+        word = unquote(url.rsplit('/', 1)[-1])
+        self.requests.append(word)
+        data = self.responses.get(word, {'word': word, 'entries': []})
+        return FakeResponse(data)
+
+
+def test_english_lemma_candidate_is_not_globally_applied():
+    assert english_lemma_candidate('heaving down') == 'heave down'
+    assert english_lemma_candidate('pitching') == 'pitch'
+    assert english_lemma_candidate('running') == 'run'
+    assert english_lemma_candidate('dancing') == 'dance'
+    assert english_lemma_candidate('moon shine') is None
+    assert english_lemma_candidate('go to a bear') is None
+    assert english_lemma_candidate('something') is None
+    assert needs_english_lemma_retry('no_definitions', [])
+    assert not needs_english_lemma_retry('rate_limited', [])
+    assert needs_english_lemma_retry('found', [{
+        'definition_en': 'present participle and gerund of pitch',
+    }])
+
+
+def test_200_empty_entry_triggers_one_lemma_lookup_with_provenance(index):
+    client = DictionaryByTerm({
+        'heaving down': {'word': 'heaving down', 'entries': []},
+        'heave down': {
+            'word': 'heave down',
+            'entries': [{
+                'partOfSpeech': 'verb',
+                'senses': [{
+                    'definition': 'To incline a vessel so the hull is exposed for work.',
+                }],
+            }],
+        },
+    })
+    async def run():
+        diagnostics = []
+        hits, requests = await search_with_optional_online(
+            'heaving down', source_language='en', index=index,
+            online=True, client=client, diagnostics=diagnostics,
+        )
+        return hits, requests, diagnostics
+
+    hits, requests, diagnostics = asyncio.run(run())
+    assert requests == 2
+    assert client.requests == ['heaving down', 'heave down']
+    assert diagnostics[0]['status'] == 'no_definitions'
+    assert diagnostics[1]['status'] == 'found'
+    assert diagnostics[1]['lookup_relation'] == 'heuristic_lemma'
+    assert diagnostics[1]['derived_from'] == 'heaving down'
+    assert len([h for h in hits if h['concept_id'].startswith('wiktionary:')]) == 1
+    lemma_hit = next(h for h in hits if h['concept_id'].startswith('wiktionary:'))
+    assert lemma_hit['matched_term'] == 'heave down'
+    assert lemma_hit['derived_from'] == 'heaving down'
+    assert lemma_hit['retrieval_score'] <= 48
+    assert lemma_hit['provenance']['license'] == 'CC BY-SA 4.0'
+    compact = compact_for_model([lemma_hit])
+    assert compact[0]['lookup_relation'] == 'heuristic_lemma'
+
+
+def test_morphological_entry_triggers_lemma_and_never_third_request(index):
+    client = DictionaryByTerm({
+        'pitching': {
+            'word': 'pitching',
+            'entries': [{'partOfSpeech': 'verb', 'senses': [{
+                'definition': 'present participle and gerund of pitch',
+            }]}],
+        },
+        'pitch': {
+            'word': 'pitch',
+            'entries': [{'partOfSpeech': 'noun', 'senses': [{
+                'definition': 'The perceived highness or lowness of a sound.',
+            }]}],
+        },
+    })
+    async def run():
+        trace = []
+        rows, calls = await search_with_optional_online(
+            'pitching', source_language='en', index=index,
+            online=True, client=client, diagnostics=trace,
+        )
+        return rows, calls, trace
+
+    hits, count, diag = asyncio.run(run())
+    assert count == 2
+    assert client.requests == ['pitching', 'pitch']
+    assert diag[0]['status'] == 'found'
+    assert diag[1]['lookup_relation'] == 'heuristic_lemma'
+    assert any(h['derived_from'] == 'pitching'
+               for h in hits if h.get('lookup_relation'))
+    assert any('highness' in h['definition_en'] for h in hits)
+    assert len(client.requests) <= 2
+
+
+def test_other_languages_are_not_english_stemmed_and_are_still_queried(index):
+    client = DictionaryByTerm({
+        'Stampfen': {'word': 'Stampfen', 'entries': []},
+    })
+    async def run():
+        trace = []
+        rows, requests = await search_with_optional_online(
+            'Stampfen', source_language='de', index=index,
+            online=True, client=client, diagnostics=trace,
+        )
+        return rows, requests, trace
+
+    hits, count, diag = asyncio.run(run())
+    assert count == 1
+    assert client.requests == ['Stampfen']
+    assert diag[0]['status'] == 'no_definitions'
+    assert 'maritime_pitching' in {h['concept_id'] for h in hits}
