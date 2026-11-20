@@ -1,0 +1,2944 @@
+{
+  "schema_version": 1,
+  "purpose": "Experimental, human-authored 160-concept lexical RAG glossary; not authoritative dictionary data or benchmark gold. Includes mutually competing word senses across domains.",
+  "records": [
+    {
+      "concept_id": "music_pitch",
+      "domain_id": "music",
+      "definition_en": "Perceived highness of a tone, which mainly corresponds to sound frequency.",
+      "terms": {
+        "en": [
+          "pitch",
+          "musical pitch"
+        ],
+        "de": [
+          "Tonhöhe"
+        ],
+        "fr": [
+          "hauteur tonale"
+        ],
+        "es": [
+          "altura tonal"
+        ],
+        "ru": [
+          "высота звука"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_note",
+      "domain_id": "music",
+      "definition_en": "A pitched sound represented in music, with a specified rhythmic duration.",
+      "terms": {
+        "en": [
+          "note",
+          "musical note"
+        ],
+        "de": [
+          "Note"
+        ],
+        "fr": [
+          "note"
+        ],
+        "es": [
+          "nota"
+        ],
+        "ru": [
+          "нота"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_key",
+      "domain_id": "music",
+      "definition_en": "A system of tonal relationships centered around a particular tonic.",
+      "terms": {
+        "en": [
+          "key",
+          "musical key"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_score",
+      "domain_id": "music",
+      "definition_en": "Written musical notation showing one or more instrumental or vocal parts.",
+      "terms": {
+        "en": [
+          "score",
+          "sheet music"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_measure",
+      "domain_id": "music",
+      "definition_en": "A regular segment of music bounded by bar lines and containing counted beats.",
+      "terms": {
+        "en": [
+          "measure",
+          "bar"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_rest",
+      "domain_id": "music",
+      "definition_en": "A written symbol instructing a performer to remain silent for a specified duration.",
+      "terms": {
+        "en": [
+          "rest",
+          "musical rest"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_chord",
+      "domain_id": "music",
+      "definition_en": "Multiple musical notes sounding together to form a harmony.",
+      "terms": {
+        "en": [
+          "chord"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_beat",
+      "domain_id": "music",
+      "definition_en": "The recurring rhythmic pulse used to measure musical time.",
+      "terms": {
+        "en": [
+          "beat",
+          "beats"
+        ],
+        "de": [
+          "Taktschlag"
+        ],
+        "fr": [
+          "temps"
+        ],
+        "es": [
+          "pulso"
+        ],
+        "ru": [
+          "доля"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_conductor",
+      "domain_id": "music",
+      "definition_en": "The person who directs an ensemble and coordinates its musical performance.",
+      "terms": {
+        "en": [
+          "conductor"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_bass",
+      "domain_id": "music",
+      "definition_en": "The low-frequency part of music or its lower-pitched instrumental line.",
+      "terms": {
+        "en": [
+          "bass",
+          "bass line"
+        ],
+        "de": [
+          "Bass"
+        ],
+        "fr": [
+          "basse"
+        ],
+        "es": [
+          "bajo"
+        ],
+        "ru": [
+          "бас"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_forte",
+      "domain_id": "music",
+      "definition_en": "A dynamic marking directing performers to play loudly.",
+      "terms": {
+        "en": [
+          "forte"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_scale",
+      "domain_id": "music",
+      "definition_en": "A structured sequence of pitches used as tonal material.",
+      "terms": {
+        "en": [
+          "scale",
+          "musical scale"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_tempo",
+      "domain_id": "music",
+      "definition_en": "The speed of the recurring beat in a performance.",
+      "terms": {
+        "en": [
+          "tempo"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "music_sustain",
+      "domain_id": "music",
+      "definition_en": "Maintain a sound across its intended length without prematurely stopping it.",
+      "terms": {
+        "en": [
+          "sustain",
+          "sustained note"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_current",
+      "domain_id": "electronics",
+      "definition_en": "Rate at which electric charge passes through a conductor.",
+      "terms": {
+        "en": [
+          "current",
+          "electric current"
+        ],
+        "de": [
+          "elektrischer Strom"
+        ],
+        "fr": [
+          "courant électrique"
+        ],
+        "es": [
+          "corriente eléctrica"
+        ],
+        "ru": [
+          "электрический ток"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_charge",
+      "domain_id": "electronics",
+      "definition_en": "A physical property of matter measured in coulombs.",
+      "terms": {
+        "en": [
+          "charge",
+          "electric charge"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_bus",
+      "domain_id": "electronics",
+      "definition_en": "Shared electrical or digital pathway that carries data between system components.",
+      "terms": {
+        "en": [
+          "bus",
+          "data bus"
+        ],
+        "de": [
+          "Datenbus"
+        ],
+        "fr": [
+          "bus de données"
+        ],
+        "es": [
+          "bus de datos"
+        ],
+        "ru": [
+          "шина данных"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_conductor",
+      "domain_id": "electronics",
+      "definition_en": "Material or component through which electric charge can move.",
+      "terms": {
+        "en": [
+          "conductor"
+        ],
+        "de": [
+          "Leiter"
+        ],
+        "fr": [
+          "conducteur électrique"
+        ],
+        "es": [
+          "conductor eléctrico"
+        ],
+        "ru": [
+          "проводник"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_ground",
+      "domain_id": "electronics",
+      "definition_en": "A reference potential or protective electrical connection to earth.",
+      "terms": {
+        "en": [
+          "ground",
+          "earth"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_short",
+      "domain_id": "electronics",
+      "definition_en": "An unintended low-resistance connection between electrical points.",
+      "terms": {
+        "en": [
+          "short",
+          "short circuit"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_terminal",
+      "domain_id": "electronics",
+      "definition_en": "A conductive point where a wire or circuit connection is made.",
+      "terms": {
+        "en": [
+          "terminal"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_resistance",
+      "domain_id": "electronics",
+      "definition_en": "Opposition to the flow of electric current in a circuit.",
+      "terms": {
+        "en": [
+          "resistance"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_capacitor",
+      "domain_id": "electronics",
+      "definition_en": "Circuit component that stores electrical energy in an electric field.",
+      "terms": {
+        "en": [
+          "capacitor"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_battery",
+      "domain_id": "electronics",
+      "definition_en": "One or more electrochemical cells supplying electrical power.",
+      "terms": {
+        "en": [
+          "battery"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_circuit",
+      "domain_id": "electronics",
+      "definition_en": "Connected electrical components that form a path for current.",
+      "terms": {
+        "en": [
+          "circuit"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_signal",
+      "domain_id": "electronics",
+      "definition_en": "Changing electrical quantity used to encode or communicate information.",
+      "terms": {
+        "en": [
+          "signal"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_transformer",
+      "domain_id": "electronics",
+      "definition_en": "Device using magnetic induction to transfer energy between electrical circuits.",
+      "terms": {
+        "en": [
+          "transformer"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_frequency",
+      "domain_id": "electronics",
+      "definition_en": "Number of repetitions of a periodic phenomenon per unit time.",
+      "terms": {
+        "en": [
+          "frequency"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "electronics_voltage",
+      "domain_id": "electronics",
+      "definition_en": "Electric potential difference between two points.",
+      "terms": {
+        "en": [
+          "voltage"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "railway_conductor",
+      "domain_id": "railway",
+      "definition_en": "Train employee who checks tickets or coordinates on-board service.",
+      "terms": {
+        "en": [
+          "conductor"
+        ],
+        "de": [
+          "Zugbegleiter"
+        ],
+        "fr": [
+          "contrôleur de train"
+        ],
+        "es": [
+          "revisor"
+        ],
+        "ru": [
+          "кондуктор"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "railway_coach",
+      "domain_id": "railway",
+      "definition_en": "Rail passenger vehicle coupled into a train.",
+      "terms": {
+        "en": [
+          "coach",
+          "railway carriage"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "railway_wagon",
+      "domain_id": "railway",
+      "definition_en": "Rail vehicle typically used to move goods or freight.",
+      "terms": {
+        "en": [
+          "wagon",
+          "freight car"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "railway_platform",
+      "domain_id": "railway",
+      "definition_en": "Raised station area used by passengers for entering and leaving trains.",
+      "terms": {
+        "en": [
+          "platform"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "railway_signal",
+      "domain_id": "railway",
+      "definition_en": "Trackside indication governing whether a train may proceed.",
+      "terms": {
+        "en": [
+          "signal",
+          "rail signal"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "railway_points",
+      "domain_id": "railway",
+      "definition_en": "Movable rail components that route a train to one of several tracks.",
+      "terms": {
+        "en": [
+          "points",
+          "switch"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "railway_sleeper",
+      "domain_id": "railway",
+      "definition_en": "Transverse support that holds rails in alignment above ballast.",
+      "terms": {
+        "en": [
+          "sleeper",
+          "rail tie"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "railway_siding",
+      "domain_id": "railway",
+      "definition_en": "Secondary railway track used for parking, passing or servicing rolling stock.",
+      "terms": {
+        "en": [
+          "siding"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "road_bus",
+      "domain_id": "road_transport",
+      "definition_en": "Large road vehicle designed to transport multiple passengers.",
+      "terms": {
+        "en": [
+          "bus",
+          "passenger bus"
+        ],
+        "de": [
+          "Bus"
+        ],
+        "fr": [
+          "autobus"
+        ],
+        "es": [
+          "autobús"
+        ],
+        "ru": [
+          "автобус"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "road_driver",
+      "domain_id": "road_transport",
+      "definition_en": "Person operating and controlling a road vehicle.",
+      "terms": {
+        "en": [
+          "driver",
+          "truck driver"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "road_brake",
+      "domain_id": "road_transport",
+      "definition_en": "Vehicle system used to reduce speed or hold the vehicle stationary.",
+      "terms": {
+        "en": [
+          "brake",
+          "brakes"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "road_lane",
+      "domain_id": "road_transport",
+      "definition_en": "Marked portion of a road designated for one line of moving vehicles.",
+      "terms": {
+        "en": [
+          "lane"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "road_shoulder",
+      "domain_id": "road_transport",
+      "definition_en": "Roadside strip used for breakdowns or emergency stopping.",
+      "terms": {
+        "en": [
+          "shoulder",
+          "hard shoulder"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "road_transmission",
+      "domain_id": "road_transport",
+      "definition_en": "Assembly that transmits power from an engine or motor to vehicle wheels.",
+      "terms": {
+        "en": [
+          "transmission",
+          "gearbox"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "road_axle",
+      "domain_id": "road_transport",
+      "definition_en": "Shaft or structural support joining opposite wheels of a road vehicle.",
+      "terms": {
+        "en": [
+          "axle"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "road_trailer",
+      "domain_id": "road_transport",
+      "definition_en": "Unpowered road vehicle drawn behind another vehicle.",
+      "terms": {
+        "en": [
+          "trailer"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "software_driver",
+      "domain_id": "software",
+      "definition_en": "Software component that enables an operating system to control a hardware device.",
+      "terms": {
+        "en": [
+          "driver",
+          "device driver"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "software_crash",
+      "domain_id": "software",
+      "definition_en": "Abrupt failure of a running computer program or operating system component.",
+      "terms": {
+        "en": [
+          "crash",
+          "crashed"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "software_thread",
+      "domain_id": "software",
+      "definition_en": "Independently scheduled sequence of execution within a process.",
+      "terms": {
+        "en": [
+          "thread"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "software_lock",
+      "domain_id": "software",
+      "definition_en": "Synchronization mechanism that prevents conflicting concurrent access.",
+      "terms": {
+        "en": [
+          "lock",
+          "mutex"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "software_cache",
+      "domain_id": "software",
+      "definition_en": "Temporary store used to reuse previously computed or retrieved data.",
+      "terms": {
+        "en": [
+          "cache"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "software_stack",
+      "domain_id": "software",
+      "definition_en": "Last-in-first-out data structure or the sequence of active function calls.",
+      "terms": {
+        "en": [
+          "stack",
+          "call stack"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "software_runtime",
+      "domain_id": "software",
+      "definition_en": "Execution environment and services available while a program runs.",
+      "terms": {
+        "en": [
+          "runtime"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "software_patch",
+      "domain_id": "software",
+      "definition_en": "A change applied to software to correct a defect or alter behavior.",
+      "terms": {
+        "en": [
+          "patch"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "software_release",
+      "domain_id": "software",
+      "definition_en": "Version of software made available to users or operators.",
+      "terms": {
+        "en": [
+          "release"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "software_build",
+      "domain_id": "software",
+      "definition_en": "Compiled or packaged software output prepared from source code.",
+      "terms": {
+        "en": [
+          "build"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "software_cell",
+      "domain_id": "software",
+      "definition_en": "Single addressable box within a spreadsheet grid.",
+      "terms": {
+        "en": [
+          "cell",
+          "spreadsheet cell"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "network_port",
+      "domain_id": "computing_networks",
+      "definition_en": "Numbered transport-layer endpoint used to direct network traffic to a service.",
+      "terms": {
+        "en": [
+          "port",
+          "network port"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "network_packet",
+      "domain_id": "computing_networks",
+      "definition_en": "Unit of formatted information transmitted across a network.",
+      "terms": {
+        "en": [
+          "packet"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "network_socket",
+      "domain_id": "computing_networks",
+      "definition_en": "Software endpoint for sending or receiving data across a network.",
+      "terms": {
+        "en": [
+          "socket",
+          "network socket"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "network_route",
+      "domain_id": "computing_networks",
+      "definition_en": "Path-selection information used to forward network traffic.",
+      "terms": {
+        "en": [
+          "route",
+          "routing"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "network_gateway",
+      "domain_id": "computing_networks",
+      "definition_en": "Node connecting networks or forwarding communication between them.",
+      "terms": {
+        "en": [
+          "gateway"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "network_bridge",
+      "domain_id": "computing_networks",
+      "definition_en": "Layer-two device or function that links network segments.",
+      "terms": {
+        "en": [
+          "bridge",
+          "network bridge"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "network_subnet",
+      "domain_id": "computing_networks",
+      "definition_en": "Logical subdivision of an IP network with a shared address prefix.",
+      "terms": {
+        "en": [
+          "subnet"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "network_latency",
+      "domain_id": "computing_networks",
+      "definition_en": "Delay before data arrives or an operation completes.",
+      "terms": {
+        "en": [
+          "latency"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "finance_bond",
+      "domain_id": "finance",
+      "definition_en": "Debt instrument under which an issuer owes payments to investors.",
+      "terms": {
+        "en": [
+          "bond",
+          "debt security"
+        ],
+        "de": [
+          "Anleihe"
+        ],
+        "fr": [
+          "obligation"
+        ],
+        "es": [
+          "bono"
+        ],
+        "ru": [
+          "облигация"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "finance_bear",
+      "domain_id": "finance",
+      "definition_en": "Market participant expecting falling prices or market conditions characterized by decline.",
+      "terms": {
+        "en": [
+          "bear",
+          "bear market"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "finance_bull",
+      "domain_id": "finance",
+      "definition_en": "Market participant expecting rising prices or a sustained rising-price market.",
+      "terms": {
+        "en": [
+          "bull",
+          "bull market"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "finance_spread",
+      "domain_id": "finance",
+      "definition_en": "Difference between two quoted prices, rates or yields.",
+      "terms": {
+        "en": [
+          "spread"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "finance_margin",
+      "domain_id": "finance",
+      "definition_en": "Collateral or account equity maintained to support leveraged positions.",
+      "terms": {
+        "en": [
+          "margin"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "finance_yield",
+      "domain_id": "finance",
+      "definition_en": "Income or return on an investment expressed relative to its value.",
+      "terms": {
+        "en": [
+          "yield"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "finance_option",
+      "domain_id": "finance",
+      "definition_en": "Contract granting a right to trade an underlying asset on stated terms.",
+      "terms": {
+        "en": [
+          "option",
+          "call option",
+          "put option"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "finance_security",
+      "domain_id": "finance",
+      "definition_en": "Tradable financial instrument such as a stock or bond.",
+      "terms": {
+        "en": [
+          "security",
+          "securities"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "finance_position",
+      "domain_id": "finance",
+      "definition_en": "Market exposure held by an investor or trader.",
+      "terms": {
+        "en": [
+          "position",
+          "short position",
+          "long position"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "finance_equity",
+      "domain_id": "finance",
+      "definition_en": "Ownership interest or residual value after liabilities.",
+      "terms": {
+        "en": [
+          "equity"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "finance_bank",
+      "domain_id": "finance",
+      "definition_en": "Financial institution offering deposit, credit and payment services.",
+      "terms": {
+        "en": [
+          "bank"
+        ],
+        "de": [
+          "Bank"
+        ],
+        "fr": [
+          "banque"
+        ],
+        "es": [
+          "banco"
+        ],
+        "ru": [
+          "банк"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "legal_charge",
+      "domain_id": "legal",
+      "definition_en": "Formal allegation that a person has committed an offense.",
+      "terms": {
+        "en": [
+          "charge",
+          "criminal charge"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "legal_appeal",
+      "domain_id": "legal",
+      "definition_en": "Request for a higher authority or court to review a decision.",
+      "terms": {
+        "en": [
+          "appeal"
+        ],
+        "de": [
+          "Berufung"
+        ],
+        "fr": [
+          "appel"
+        ],
+        "es": [
+          "apelación"
+        ],
+        "ru": [
+          "апелляция"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "legal_bond",
+      "domain_id": "legal",
+      "definition_en": "Binding guarantee that obligations or specified conditions will be met.",
+      "terms": {
+        "en": [
+          "bond",
+          "surety bond"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "legal_ticket",
+      "domain_id": "legal",
+      "definition_en": "Citation issued for a traffic or other regulatory violation.",
+      "terms": {
+        "en": [
+          "ticket",
+          "traffic ticket"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "legal_contract",
+      "domain_id": "legal",
+      "definition_en": "Legally enforceable agreement between parties.",
+      "terms": {
+        "en": [
+          "contract"
+        ],
+        "de": [
+          "Vertrag"
+        ],
+        "fr": [
+          "contrat"
+        ],
+        "es": [
+          "contrato"
+        ],
+        "ru": [
+          "договор"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "legal_execute",
+      "domain_id": "legal",
+      "definition_en": "Complete the signing or formal legal effect of an instrument.",
+      "terms": {
+        "en": [
+          "execute",
+          "executed"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "legal_case",
+      "domain_id": "legal",
+      "definition_en": "Dispute or prosecution considered by a judicial body.",
+      "terms": {
+        "en": [
+          "case"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "legal_injunction",
+      "domain_id": "legal",
+      "definition_en": "Court order requiring or prohibiting particular actions.",
+      "terms": {
+        "en": [
+          "injunction"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "health_discharge",
+      "domain_id": "healthcare",
+      "definition_en": "Formal release of a patient from care or a healthcare facility.",
+      "terms": {
+        "en": [
+          "discharge",
+          "discharged"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "health_patient",
+      "domain_id": "healthcare",
+      "definition_en": "Individual receiving medical diagnosis, treatment or care.",
+      "terms": {
+        "en": [
+          "patient"
+        ],
+        "de": [
+          "Patient"
+        ],
+        "fr": [
+          "patient"
+        ],
+        "es": [
+          "paciente"
+        ],
+        "ru": [
+          "пациент"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "health_shot",
+      "domain_id": "healthcare",
+      "definition_en": "Administration of a substance into the body with a needle.",
+      "terms": {
+        "en": [
+          "shot",
+          "injection"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "health_cell",
+      "domain_id": "healthcare",
+      "definition_en": "Basic structural and functional unit of living organisms.",
+      "terms": {
+        "en": [
+          "cell",
+          "biological cell"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "health_culture",
+      "domain_id": "healthcare",
+      "definition_en": "Growth of microorganisms or cells in controlled laboratory conditions.",
+      "terms": {
+        "en": [
+          "culture",
+          "cell culture"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "health_remission",
+      "domain_id": "healthcare",
+      "definition_en": "Reduction or disappearance of symptoms or measurable signs of disease.",
+      "terms": {
+        "en": [
+          "remission"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "health_pulse",
+      "domain_id": "healthcare",
+      "definition_en": "Rhythmic pressure wave in arteries produced by heartbeats.",
+      "terms": {
+        "en": [
+          "pulse"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "health_scan",
+      "domain_id": "healthcare",
+      "definition_en": "Diagnostic imaging examination of internal anatomy.",
+      "terms": {
+        "en": [
+          "scan",
+          "medical scan"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "health_dose",
+      "domain_id": "healthcare",
+      "definition_en": "Quantity of medication or radiation administered at one time.",
+      "terms": {
+        "en": [
+          "dose"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "sports_pitching",
+      "domain_id": "sports",
+      "definition_en": "Act of throwing the ball to a batter in baseball.",
+      "terms": {
+        "en": [
+          "pitching",
+          "pitch"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "sports_pitch",
+      "domain_id": "sports",
+      "definition_en": "Playing surface used for field sports such as football.",
+      "terms": {
+        "en": [
+          "pitch",
+          "playing pitch"
+        ],
+        "de": [
+          "Spielfeld"
+        ],
+        "fr": [
+          "terrain"
+        ],
+        "es": [
+          "campo de juego"
+        ],
+        "ru": [
+          "игровое поле"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "sports_shot",
+      "domain_id": "sports",
+      "definition_en": "An attempt to score by directing a ball or puck toward the goal.",
+      "terms": {
+        "en": [
+          "shot"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "sports_foul",
+      "domain_id": "sports",
+      "definition_en": "Infraction of the rules committed by a player.",
+      "terms": {
+        "en": [
+          "foul"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "sports_set",
+      "domain_id": "sports",
+      "definition_en": "Subdivision of a match comprising games, rallies or points.",
+      "terms": {
+        "en": [
+          "set"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "sports_draw",
+      "domain_id": "sports",
+      "definition_en": "Tie result in which competitors finish with equal scores.",
+      "terms": {
+        "en": [
+          "draw"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "sports_goal",
+      "domain_id": "sports",
+      "definition_en": "Successful scoring event or the target into which a ball is directed.",
+      "terms": {
+        "en": [
+          "goal"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "construction_crane",
+      "domain_id": "construction",
+      "definition_en": "Mechanical equipment for lifting and moving heavy loads.",
+      "terms": {
+        "en": [
+          "crane"
+        ],
+        "de": [
+          "Kran"
+        ],
+        "fr": [
+          "grue"
+        ],
+        "es": [
+          "grúa"
+        ],
+        "ru": [
+          "подъёмный кран"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "construction_beam",
+      "domain_id": "construction",
+      "definition_en": "Horizontal structural member carrying transverse loads.",
+      "terms": {
+        "en": [
+          "beam"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "construction_base",
+      "domain_id": "construction",
+      "definition_en": "Supporting bottom portion or foundation of a structure.",
+      "terms": {
+        "en": [
+          "base"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "construction_footing",
+      "domain_id": "construction",
+      "definition_en": "Subsurface support that spreads a structure's load into the ground.",
+      "terms": {
+        "en": [
+          "footing"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "construction_pitch",
+      "domain_id": "construction",
+      "definition_en": "Steepness or angle of an inclined roof or surface.",
+      "terms": {
+        "en": [
+          "pitch",
+          "roof pitch"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "construction_shoring",
+      "domain_id": "construction",
+      "definition_en": "Temporary structural supports used to prevent collapse.",
+      "terms": {
+        "en": [
+          "shoring"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "construction_column",
+      "domain_id": "construction",
+      "definition_en": "Vertical member that transfers structural loads downward.",
+      "terms": {
+        "en": [
+          "column"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "construction_pour",
+      "domain_id": "construction",
+      "definition_en": "Placement of freshly mixed concrete into formwork.",
+      "terms": {
+        "en": [
+          "pour",
+          "concrete pour"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "land_bank",
+      "domain_id": "land_management",
+      "definition_en": "Sloping land at the edge of a river or other watercourse.",
+      "terms": {
+        "en": [
+          "bank",
+          "river bank",
+          "riverbank"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "land_current",
+      "domain_id": "land_management",
+      "definition_en": "Continuous movement of water through a river or other channel.",
+      "terms": {
+        "en": [
+          "current",
+          "water current"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "land_boundary",
+      "domain_id": "land_management",
+      "definition_en": "Legal or physical line separating parcels or areas.",
+      "terms": {
+        "en": [
+          "boundary"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "land_plot",
+      "domain_id": "land_management",
+      "definition_en": "Delimited piece of land considered for ownership or development.",
+      "terms": {
+        "en": [
+          "plot",
+          "land plot"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "land_drainage",
+      "domain_id": "land_management",
+      "definition_en": "Removal or management of excess water from land.",
+      "terms": {
+        "en": [
+          "drainage"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "land_irrigation",
+      "domain_id": "land_management",
+      "definition_en": "Application of water to cultivated land.",
+      "terms": {
+        "en": [
+          "irrigation"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "land_parcel",
+      "domain_id": "land_management",
+      "definition_en": "Identified lot of land in a cadastre or land register.",
+      "terms": {
+        "en": [
+          "parcel"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "military_blockbuster",
+      "domain_id": "military",
+      "definition_en": "Very large aerial explosive bomb historically intended to demolish wide urban areas.",
+      "terms": {
+        "en": [
+          "blockbuster",
+          "blockbuster bomb"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "military_battery",
+      "domain_id": "military",
+      "definition_en": "Organized group of artillery guns and associated crews.",
+      "terms": {
+        "en": [
+          "battery",
+          "artillery battery"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "military_base",
+      "domain_id": "military",
+      "definition_en": "Installation supporting troops, operations, maintenance or logistics.",
+      "terms": {
+        "en": [
+          "base",
+          "military base"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "military_charge",
+      "domain_id": "military",
+      "definition_en": "Forceful military advance or assault toward an opposing position.",
+      "terms": {
+        "en": [
+          "charge"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "military_deployment",
+      "domain_id": "military",
+      "definition_en": "Movement and positioning of personnel or equipment for operations.",
+      "terms": {
+        "en": [
+          "deployment"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "military_engagement",
+      "domain_id": "military",
+      "definition_en": "Encounter or conflict involving opposing armed forces.",
+      "terms": {
+        "en": [
+          "engagement"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "maritime_heaving",
+      "domain_id": "maritime",
+      "definition_en": "Controlled operation of heeling a vessel over to expose underwater hull for maintenance.",
+      "terms": {
+        "en": [
+          "heaving down",
+          "heave down",
+          "careening"
+        ],
+        "ru": [
+          "кренгование"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "maritime_pitching",
+      "domain_id": "maritime",
+      "definition_en": "Rotation of a vessel that raises and lowers its bow and stern in waves.",
+      "terms": {
+        "en": [
+          "pitching",
+          "pitch"
+        ],
+        "de": [
+          "Stampfen"
+        ],
+        "fr": [
+          "tangage"
+        ],
+        "es": [
+          "cabeceo"
+        ],
+        "ru": [
+          "килевая качка"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "maritime_port",
+      "domain_id": "maritime",
+      "definition_en": "Coastal location with facilities for ships to load, unload or shelter.",
+      "terms": {
+        "en": [
+          "port",
+          "seaport"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "maritime_starboard",
+      "domain_id": "maritime",
+      "definition_en": "Right-hand side of a vessel when facing forward.",
+      "terms": {
+        "en": [
+          "starboard"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "maritime_draft",
+      "domain_id": "maritime",
+      "definition_en": "Vertical distance from the waterline to a vessel's lowest submerged point.",
+      "terms": {
+        "en": [
+          "draft",
+          "draught"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "maritime_list",
+      "domain_id": "maritime",
+      "definition_en": "Persistent sideways inclination of a vessel away from upright.",
+      "terms": {
+        "en": [
+          "list",
+          "listing"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "maritime_ballast",
+      "domain_id": "maritime",
+      "definition_en": "Weight carried aboard to adjust trim, stability or immersion.",
+      "terms": {
+        "en": [
+          "ballast"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "maritime_hold",
+      "domain_id": "maritime",
+      "definition_en": "Enclosed compartment below decks used to store cargo.",
+      "terms": {
+        "en": [
+          "hold",
+          "cargo hold"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "maritime_bilge",
+      "domain_id": "maritime",
+      "definition_en": "Lowest interior region of a hull where water may accumulate.",
+      "terms": {
+        "en": [
+          "bilge"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "wildlife_honey_badger",
+      "domain_id": "wildlife",
+      "definition_en": "Carnivorous mammal Mellivora capensis of the weasel family.",
+      "terms": {
+        "en": [
+          "honey badger",
+          "ratel"
+        ],
+        "de": [
+          "Honigdachs"
+        ],
+        "fr": [
+          "ratel"
+        ],
+        "es": [
+          "ratel"
+        ],
+        "ru": [
+          "медоед"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "wildlife_crane",
+      "domain_id": "wildlife",
+      "definition_en": "Long-legged, long-necked bird in the family Gruidae.",
+      "terms": {
+        "en": [
+          "crane"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "wildlife_bat",
+      "domain_id": "wildlife",
+      "definition_en": "Flying mammal of the order Chiroptera.",
+      "terms": {
+        "en": [
+          "bat"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "wildlife_mole",
+      "domain_id": "wildlife",
+      "definition_en": "Burrowing small mammal with specialized digging limbs.",
+      "terms": {
+        "en": [
+          "mole"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "astronomy_moon",
+      "domain_id": "astronomy",
+      "definition_en": "Natural satellite of a planet; in ordinary Earth context the Moon.",
+      "terms": {
+        "en": [
+          "moon",
+          "Moon"
+        ],
+        "de": [
+          "Mond"
+        ],
+        "fr": [
+          "Lune"
+        ],
+        "es": [
+          "Luna"
+        ],
+        "ru": [
+          "Луна"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "astronomy_eclipse",
+      "domain_id": "astronomy",
+      "definition_en": "Celestial event in which one body passes through another's shadow or blocks its light.",
+      "terms": {
+        "en": [
+          "eclipse"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "astronomy_orbit",
+      "domain_id": "astronomy",
+      "definition_en": "Path followed by a body under gravity around another body.",
+      "terms": {
+        "en": [
+          "orbit"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "astronomy_phase",
+      "domain_id": "astronomy",
+      "definition_en": "Fraction of the illuminated lunar disk visible to an observer.",
+      "terms": {
+        "en": [
+          "phase",
+          "lunar phase"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "publishing_edition",
+      "domain_id": "publishing",
+      "definition_en": "Particular published version of a text or other work.",
+      "terms": {
+        "en": [
+          "edition"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "publishing_proof",
+      "domain_id": "publishing",
+      "definition_en": "Pre-publication copy checked for typographic and layout errors.",
+      "terms": {
+        "en": [
+          "proof",
+          "galley proof"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "publishing_copy",
+      "domain_id": "publishing",
+      "definition_en": "Text or material prepared for reproduction in a publication.",
+      "terms": {
+        "en": [
+          "copy"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "publishing_issue",
+      "domain_id": "publishing",
+      "definition_en": "Numbered or dated installment of a periodical publication.",
+      "terms": {
+        "en": [
+          "issue"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "events_ticket",
+      "domain_id": "events_ticketing",
+      "definition_en": "Document or digital credential granting entry to an event.",
+      "terms": {
+        "en": [
+          "ticket",
+          "admission ticket"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "events_box_office",
+      "domain_id": "events_ticketing",
+      "definition_en": "Point of ticket sales or the measure of ticket-sales revenue.",
+      "terms": {
+        "en": [
+          "box office"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "events_admission",
+      "domain_id": "events_ticketing",
+      "definition_en": "Permission or entitlement to enter a performance or event.",
+      "terms": {
+        "en": [
+          "admission"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "education_grade",
+      "domain_id": "education",
+      "definition_en": "Evaluation of a student's performance in a course or examination.",
+      "terms": {
+        "en": [
+          "grade",
+          "mark"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "education_term",
+      "domain_id": "education",
+      "definition_en": "Scheduled portion of an academic year.",
+      "terms": {
+        "en": [
+          "term",
+          "semester"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "education_course",
+      "domain_id": "education",
+      "definition_en": "Organized sequence of lessons covering a subject.",
+      "terms": {
+        "en": [
+          "course"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "food_course",
+      "domain_id": "food_service",
+      "definition_en": "One stage of a multi-course meal.",
+      "terms": {
+        "en": [
+          "course",
+          "dinner course"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "food_order",
+      "domain_id": "food_service",
+      "definition_en": "Request for food or drink to be prepared and served.",
+      "terms": {
+        "en": [
+          "order"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "food_bill",
+      "domain_id": "food_service",
+      "definition_en": "Statement of charges for food or drinks served.",
+      "terms": {
+        "en": [
+          "bill",
+          "check"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "hospitality_reservation",
+      "domain_id": "hospitality",
+      "definition_en": "Advance arrangement to secure lodging or services.",
+      "terms": {
+        "en": [
+          "reservation",
+          "booking"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "hospitality_checkout",
+      "domain_id": "hospitality",
+      "definition_en": "Process of ending a hotel stay and settling an account.",
+      "terms": {
+        "en": [
+          "checkout",
+          "check out"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "hospitality_room",
+      "domain_id": "hospitality",
+      "definition_en": "Unit of accommodation provided to a guest.",
+      "terms": {
+        "en": [
+          "room",
+          "hotel room"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "office_minutes",
+      "domain_id": "office_administration",
+      "definition_en": "Formal record of decisions and proceedings at a meeting.",
+      "terms": {
+        "en": [
+          "minutes",
+          "meeting minutes"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "office_memo",
+      "domain_id": "office_administration",
+      "definition_en": "Brief written internal business communication.",
+      "terms": {
+        "en": [
+          "memo",
+          "memorandum"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "office_note",
+      "domain_id": "office_administration",
+      "definition_en": "Brief written record, message or annotation.",
+      "terms": {
+        "en": [
+          "note",
+          "written note"
+        ],
+        "de": [
+          "Notiz"
+        ],
+        "fr": [
+          "note écrite"
+        ],
+        "es": [
+          "nota escrita"
+        ],
+        "ru": [
+          "записка"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "wildlife_bear",
+      "domain_id": "wildlife",
+      "definition_en": "Large omnivorous or carnivorous mammal belonging to the family Ursidae.",
+      "terms": {
+        "en": [
+          "bear"
+        ],
+        "de": [
+          "Bär"
+        ],
+        "fr": [
+          "ours"
+        ],
+        "es": [
+          "oso"
+        ],
+        "ru": [
+          "медведь"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "office_pitching",
+      "domain_id": "office_administration",
+      "definition_en": "Persuasive presentation of an idea, proposal or product to win support.",
+      "terms": {
+        "en": [
+          "pitching",
+          "sales pitch",
+          "pitch"
+        ],
+        "de": [
+          "Verkaufsgespräch"
+        ],
+        "fr": [
+          "argumentaire commercial"
+        ],
+        "es": [
+          "presentación comercial"
+        ],
+        "ru": [
+          "презентация идеи"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "film_blockbuster",
+      "domain_id": "film",
+      "definition_en": "Film or entertainment production achieving exceptional audience popularity and commercial success.",
+      "terms": {
+        "en": [
+          "blockbuster"
+        ],
+        "de": [
+          "Kassenschlager"
+        ],
+        "fr": [
+          "film à succès"
+        ],
+        "es": [
+          "éxito de taquilla"
+        ],
+        "ru": [
+          "кассовый хит"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "pharma_blockbuster",
+      "domain_id": "pharmaceuticals",
+      "definition_en": "Medicinal product generating unusually high annual sales revenue.",
+      "terms": {
+        "en": [
+          "blockbuster",
+          "blockbuster drug"
+        ],
+        "de": [
+          "Blockbuster-Medikament"
+        ],
+        "fr": [
+          "médicament vedette"
+        ],
+        "es": [
+          "medicamento superventas"
+        ],
+        "ru": [
+          "лекарство-блокбастер"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    }
+  ]
+}

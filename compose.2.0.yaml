@@ -1,0 +1,33 @@
+# Opt-in overlay. Do not use until the database is initialized and backed up.
+# sudo docker compose -f compose.yaml -f compose.2.0.yaml up -d --build
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: localizer
+      POSTGRES_USER: localizer
+      POSTGRES_PASSWORD: "${LOCALIZER_POSTGRES_PASSWORD:?Set a strong LOCALIZER_POSTGRES_PASSWORD in .env}"
+    volumes:
+      - localizer_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U localizer -d localizer"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - default
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+  api:
+    environment:
+      LOCALIZER_DATABASE_URL: "postgresql+psycopg://localizer@db:5432/localizer"
+      LOCALIZER_DATABASE_PASSWORD: "${LOCALIZER_POSTGRES_PASSWORD:?Set a strong LOCALIZER_POSTGRES_PASSWORD in .env}"
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  localizer_postgres:

@@ -1,6 +1,10 @@
 """Pydantic request and response contracts exposed by the API."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
+
+from .quality.schemas import QualityReport
 
 
 class PageViewRequest(BaseModel):
@@ -11,29 +15,35 @@ class PageViewRequest(BaseModel):
 
 
 class TranslateRequest(BaseModel):
-    """English source strings and a target language code and/or native name."""
+    """Legacy dictionary contract plus optional pinned Localizer 2.0 context."""
 
     dictionary: dict[str, str] = Field(min_length=1, max_length=500)
     language_code: str | None = Field(default=None, min_length=2, max_length=20)
     language_name: str | None = Field(default=None, min_length=1, max_length=100)
+    context_id: str | None = Field(
+        default=None, min_length=2, max_length=80,
+        pattern=r'^[a-z][a-z0-9_-]*$',
+    )
+    context_version: int | None = Field(default=None, ge=1)
+    quality_mode: Literal['standard', 'verified'] = 'standard'
 
     @model_validator(mode='after')
     def check_language(self):
-        """Ensure that the request contains a target-language identifier.
-
-        :return: The validated request model instance.
-        :raises ValueError: If neither ``language_code`` nor ``language_name`` is supplied.
-        """
         if not self.language_code and not self.language_name:
             raise ValueError('Specify language_code or language_name')
+        if self.context_version is not None and self.context_id is None:
+            raise ValueError('context_version requires context_id')
         return self
 
 
 class TranslateResponse(BaseModel):
-    """Translated or original strings, with language and fallback status."""
+    """Translated strings plus optional actual context-version metadata."""
 
     dictionary: dict[str, str]
     language: str
     language_recognized: bool | None = True
     fallback: bool
     error: str | None = None
+    context_id: str | None = None
+    context_version: int | None = None
+    quality_report: QualityReport | None = None

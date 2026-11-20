@@ -19,6 +19,10 @@ from ..constants import (
     JSON_RETRY_PROMPT,
     REPETITION_RETRY_PROMPT,
     SYSTEM_PROMPT,
+    SEMANTIC_ASSIGNMENT_PREFIX,
+    SEMANTIC_SYSTEM_PROMPT,
+    SPECIALIST_ASSIGNMENT_PREFIX,
+    SPECIALIST_SYSTEM_PROMPT,
     USER_PROMPT,
 )
 
@@ -26,6 +30,10 @@ logger = logging.getLogger('localizer')
 PLACEHOLDER = re.compile(r'\{[A-Za-z_][A-Za-z_0-9]*\}')
 LANGUAGE_CODE = re.compile(r'^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$')
 T = TypeVar('T')
+
+
+class ModelIdentityMismatchError(RuntimeError):
+    """Stop immediately when the provider returns an unexpected model ID."""
 
 
 class InvalidModelJSONError(ValueError):
@@ -208,6 +216,7 @@ def build_translation_prompt(
     language: str,
     json_retry: bool = False,
     repetition_retry: bool = False,
+    context_prompt: str | None = None,
 ) -> str:
     """Build the prompt for translating trusted target-language strings.
 
@@ -221,6 +230,8 @@ def build_translation_prompt(
         language=language,
         values=json.dumps(values, ensure_ascii=False),
     )
+    if context_prompt:
+        prompt += context_prompt
     if json_retry:
         prompt += JSON_RETRY_PROMPT
     if repetition_retry:
@@ -267,6 +278,7 @@ def build_request_payload(
     prompt: str,
     max_tokens: int,
     reasoning_effort: str,
+    system_prompt: str = SYSTEM_PROMPT,
 ) -> dict:
     """Build the OpenAI chat-completions request body.
 
@@ -279,7 +291,7 @@ def build_request_payload(
     return {
         'model': model,
         'messages': [
-            {'role': 'system', 'content': SYSTEM_PROMPT},
+            {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': prompt},
         ],
         'max_completion_tokens': max_tokens,
@@ -306,6 +318,7 @@ async def _request_with_retries(
     parser: Callable[[str], T],
     operation: str,
     force_fallback_model: bool = False,
+    system_prompt: str = SYSTEM_PROMPT,
 ) -> T:
     """Run one OpenAI operation with validation, retries and fallback-model switching.
 
@@ -356,6 +369,7 @@ async def _request_with_retries(
                     prompt=prompt_builder(json_retry_required),
                     max_tokens=max_tokens,
                     reasoning_effort=settings.openai_reasoning_effort,
+                    system_prompt=system_prompt,
                 )
                 response = await client.post(
                     url,
@@ -372,12 +386,13 @@ async def _request_with_retries(
 
                 reason = choice.get('finish_reason')
                 if reason == 'length':
-                    logger.warning(
-                        'OpenAI raw truncated response, operation=%s model=%s: %r',
-                        operation,
-                        model,
-                        raw_content[:settings.openai_raw_response_log_chars],
-                    )
+                    if operation != 'quality review':
+                        logger.warning(
+                            'OpenAI raw truncated response, operation=%s model=%s: %r',
+                            operation,
+                            model,
+                            raw_content[:settings.openai_raw_response_log_chars],
+                        )
                     if operation == 'translation' and _has_repetition_loop(raw_content):
                         logger.warning(
                             'OpenAI repetition loop detected, operation=%s model=%s',
@@ -397,6 +412,15 @@ async def _request_with_retries(
                 # source strings, translated content and credentials out of logs.
                 validated_result = parser(raw_content)
                 response_model = response_data.get('model')
+                if operation == 'quality review' and response_model != model:
+                    # A provider alias/mismatch cannot be accepted as an independent check.
+                    raise ModelIdentityMismatchError('Independent controller response model identity mismatch')
+                if (
+                    operation == 'translation'
+                    and settings.localizer_qa_verified_enabled
+                    and response_model == settings.localizer_qa_controller_model_id
+                ):
+                    raise ModelIdentityMismatchError('Translator response unexpectedly used controller model')
                 if not isinstance(response_model, str) or not response_model:
                     response_model = model
                 logger.info(
@@ -458,7 +482,8 @@ async def _request_with_retries(
                 if isinstance(exc, InvalidModelJSONError):
                     json_retry_required = True
 
-                if isinstance(exc, InvalidModelJSONError) and raw_content is not None:
+                if (operation != 'quality review' and
+                        isinstance(exc, InvalidModelJSONError) and raw_content is not None):
                     logger.warning(
                         'OpenAI raw response after invalid JSON, operation=%s model=%s: %r',
                         operation,
@@ -473,7 +498,7 @@ async def _request_with_retries(
                     attempt + 1,
                     settings.openai_retries + 1,
                     model,
-                    str(exc)[:300],
+                    type(exc).__name__ if operation == 'quality review' else str(exc)[:300],
                     type(exc).__name__,
                     exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else '-',
                     int((time.monotonic() - attempt_started) * 1000),
@@ -516,6 +541,7 @@ async def _translate_batch(
     settings: Settings,
     repetition_retry: bool = False,
     force_fallback_model: bool = False,
+    context_prompt: str | None = None,
 ) -> list[str]:
     """Translate one batch without changing its boundaries.
 
@@ -536,10 +562,18 @@ async def _translate_batch(
             language,
             json_retry=json_retry,
             repetition_retry=repetition_retry,
+            context_prompt=context_prompt,
         ),
         parser=lambda raw: parse_translation(raw, values),
         operation='translation',
         force_fallback_model=force_fallback_model,
+        system_prompt=(
+            SEMANTIC_SYSTEM_PROMPT
+            if (context_prompt or '').startswith(SEMANTIC_ASSIGNMENT_PREFIX)
+            else SPECIALIST_SYSTEM_PROMPT
+            if (context_prompt or '').startswith(SPECIALIST_ASSIGNMENT_PREFIX)
+            else SYSTEM_PROMPT
+        ),
     )
 
 
@@ -548,6 +582,7 @@ async def _translate_values_recursive(
     language: str,
     settings: Settings,
     repetition_retry: bool = False,
+    context_prompt: str | None = None,
 ) -> list[str]:
     """Translate adaptively, splitting only batches that enter repetition loops.
 
@@ -566,6 +601,7 @@ async def _translate_values_recursive(
             language,
             settings,
             repetition_retry=repetition_retry,
+            context_prompt=context_prompt,
         )
     except RepetitionLoopError:
         if len(values) <= 1:
@@ -581,6 +617,7 @@ async def _translate_values_recursive(
                 settings,
                 repetition_retry=True,
                 force_fallback_model=True,
+                context_prompt=context_prompt,
             )
 
         midpoint = len(values) // 2
@@ -598,12 +635,14 @@ async def _translate_values_recursive(
             language,
             settings,
             repetition_retry=True,
+            context_prompt=context_prompt,
         )
         right_translated = await _translate_values_recursive(
             right_values,
             language,
             settings,
             repetition_retry=True,
+            context_prompt=context_prompt,
         )
         return left_translated + right_translated
 
@@ -612,6 +651,7 @@ async def translate_values(
     values: list[str],
     language: str,
     settings: Settings,
+    context_prompt: str | None = None,
 ) -> list[str]:
     """Translate strings into a trusted target language with adaptive loop recovery.
 
@@ -623,7 +663,9 @@ async def translate_values(
     :raises UnsupportedTargetLanguageError: If repeated completed responses decline the target language.
     :raises RuntimeError: If configuration is missing or all translation attempts fail.
     """
-    return await _translate_values_recursive(values, language, settings)
+    return await _translate_values_recursive(
+        values, language, settings, context_prompt=context_prompt,
+    )
 
 
 async def recognize_custom_language(

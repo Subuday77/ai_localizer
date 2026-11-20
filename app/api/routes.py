@@ -1,11 +1,20 @@
 """HTTP endpoints; translation business logic lives in services/."""
 
 import asyncio
+import hashlib
+import hmac
 import logging
 import secrets
 import time
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException
+from starlette.concurrency import run_in_threadpool
+from sqlalchemy.exc import SQLAlchemyError
+
+from ..contexts.repository import (
+    ContextNotFoundError, ContextUnavailableError, InvalidContextDataError,
+    build_context_prompt, list_public_contexts, resolve_context,
+)
 
 from ..auth import require_api_key
 
@@ -18,6 +27,8 @@ from ..constants import (
     MOCK_DICTIONARY,
 )
 from ..schemas import TranslateRequest, TranslateResponse
+from ..quality.controller import QualityConfigurationError, require_independent_controller
+from ..quality.pipeline import VerificationFailed, verify_translation
 from ..services.openai import (
     UnsupportedTargetLanguageError,
     recognize_custom_language,
@@ -46,16 +57,50 @@ def languages() -> dict[str, str]:
     return LANGUAGES
 
 
+@router.get('/contexts', tags=['Localization'])
+def contexts(settings: Settings = Depends(get_settings)) -> dict:
+    """List public published contexts without invoking any AI model."""
+    try:
+        return {'contexts': list_public_contexts(
+            settings.localizer_database_url, settings.localizer_database_password,
+        )}
+    except ContextUnavailableError:
+        raise HTTPException(status_code=503, detail='Context catalog is not configured')
+    except (SQLAlchemyError, InvalidContextDataError):
+        logger.exception('Context catalog database unavailable')
+        raise HTTPException(status_code=503, detail='Context catalog unavailable')
+
+
 @router.post('/translate', response_model=TranslateResponse, tags=['Localization'], dependencies=[Depends(require_api_key)])
 async def translate(
     request: TranslateRequest,
     settings: Settings = Depends(get_settings),
+    authorization: str | None = Header(default=None),
 ) -> TranslateResponse:
     """Translate values while emitting content-free lifecycle diagnostics.
 
     Request identifiers correlate entry, completion and failure. Never log
     dictionary values, keys, prompts, credentials or custom language names.
     """
+    if request.quality_mode == 'verified':
+        # Verified is deliberately internal-only; no anonymous or public-demo access.
+        if not settings.localizer_require_api_key or not settings.localizer_qa_verified_enabled:
+            raise HTTPException(status_code=403, detail='Verified mode is not enabled for this API')
+        try:
+            require_independent_controller(settings)
+        except QualityConfigurationError:
+            raise HTTPException(status_code=503, detail='Verified quality configuration is incomplete')
+        # General /translate keys are insufficient for the internal paid-quality tier.
+        scheme, separator, token = (authorization or '').partition(' ')
+        if (scheme.lower() != 'bearer' or not separator or not token or
+                len(token) > 256 or token.strip() != token):
+            raise HTTPException(status_code=403, detail='Verified access not granted')
+        token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+        if not any(hmac.compare_digest(token_hash, key_hash)
+                   for key_hash in settings.localizer_qa_verified_api_key_hashes):
+            raise HTTPException(status_code=403, detail='Verified access not granted')
+        if request.language_code == 'en' and not request.language_name:
+            raise HTTPException(status_code=422, detail='Verified mode requires a target translation')
     request_id = secrets.token_hex(6)
     started = time.monotonic()
     custom_language = bool(request.language_name)
@@ -63,6 +108,24 @@ async def translate(
     log_target = target_code if target_code in LANGUAGES else (
         'custom' if custom_language else 'unknown'
     )
+    resolved_context = None
+    if request.context_id:
+        try:
+            resolved_context = await run_in_threadpool(
+                resolve_context,
+                settings.localizer_database_url,
+                request.context_id,
+                request.context_version,
+                settings.localizer_database_password,
+            )
+        except ContextNotFoundError:
+            raise HTTPException(status_code=422, detail='Unknown or unpublished context/version')
+        except ContextUnavailableError:
+            raise HTTPException(status_code=503, detail='Context catalog is not configured')
+        except (SQLAlchemyError, InvalidContextDataError):
+            logger.exception('Context resolution failed: id=%s', request_id)
+            raise HTTPException(status_code=503, detail='Context catalog unavailable')
+
     keys_count = len(request.dictionary)
     total_chars = sum(len(value) for value in request.dictionary.values())
     logger.info(
@@ -71,6 +134,9 @@ async def translate(
     )
 
     def finished(result: TranslateResponse, outcome: str) -> TranslateResponse:
+        if resolved_context is not None:
+            result.context_id = resolved_context.context_id
+            result.context_version = resolved_context.version
         logger.info(
             'Translation request completed: id=%s target=%s outcome=%s '
             'fallback=%s keys=%d duration_ms=%d',
@@ -94,6 +160,7 @@ async def translate(
     values = list(request.dictionary.values())
     response_language = language
     language_recognized_state: bool | None = True if not custom_language else None
+    quality_report = None
 
     try:
         if custom_language:
@@ -116,16 +183,55 @@ async def translate(
             target_language = (
                 f'{recognition.language} (language code: {recognition.language_code})'
             )
-            translated = await translate_values(values, target_language, settings)
+            context_prompt = (
+                build_context_prompt(resolved_context, recognition.language_code)
+                if resolved_context else None
+            )
+            if context_prompt is None:
+                translated = await translate_values(values, target_language, settings)
+            else:
+                translated = await translate_values(
+                    values, target_language, settings, context_prompt=context_prompt,
+                )
         else:
-            translated = await translate_values(values, language, settings)
+            context_prompt = (
+                build_context_prompt(resolved_context, target_code)
+                if resolved_context else None
+            )
+            if context_prompt is None:
+                translated = await translate_values(values, language, settings)
+            else:
+                translated = await translate_values(
+                    values, language, settings, context_prompt=context_prompt,
+                )
             response_language = language
+
+        if request.quality_mode == 'verified':
+            try:
+                translated, quality_report = await verify_translation(
+                    values, translated,
+                    target_language if custom_language else language,
+                    settings, resolved_context, context_prompt,
+                )
+            except VerificationFailed as exc:
+                logger.warning('Independent verification failed: id=%s', request_id)
+                raise HTTPException(
+                    status_code=422,
+                    detail={'status': 'verification_failed',
+                            'quality_report': exc.report.model_dump()},
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception('Independent verification unavailable: id=%s', request_id)
+                raise HTTPException(status_code=503, detail='Independent verification unavailable')
 
         return finished(TranslateResponse(
             dictionary=dict(zip(keys, translated)),
             language=response_language,
             language_recognized=True,
             fallback=False,
+            quality_report=quality_report,
         ), 'translated')
     except asyncio.CancelledError:
         logger.warning(
@@ -133,7 +239,11 @@ async def translate(
             request_id, log_target, int((time.monotonic() - started) * 1000),
         )
         raise
+    except HTTPException:
+        raise
     except UnsupportedTargetLanguageError:
+        if request.quality_mode == 'verified':
+            raise HTTPException(status_code=422, detail='Target language not reliably supported')
         logger.warning(
             'Translation unsupported: id=%s target=%s duration_ms=%d',
             request_id, log_target, int((time.monotonic() - started) * 1000),
@@ -146,6 +256,9 @@ async def translate(
             error=UNSUPPORTED_LANGUAGE_MESSAGE,
         ), 'unsupported_fallback')
     except Exception as exc:
+        if request.quality_mode == 'verified':
+            logger.exception('Verified translation failed: id=%s', request_id)
+            raise HTTPException(status_code=503, detail='Verified translation unavailable')
         logger.exception(
             'Translation request failed: id=%s target=%s error_type=%s',
             request_id, log_target, type(exc).__name__,
