@@ -443,6 +443,9 @@ def render_markdown(rows: list[dict], catalog: dict, thresholds=THRESHOLDS):
             '',
             '**RAG gate escalation:** ' + str(row.get('rag_gate_escalation', False)),
             '',
+            '**Online dictionary diagnostics:** ' + json.dumps(
+                row.get('rag_online_diagnostics', []), ensure_ascii=False),
+            '',
         ]
         for i, s in enumerate(row['senses'], 1):
             result += [
@@ -513,6 +516,7 @@ async def run_case(client, settings, case, trial, catalog, *,
         'rag_hits_count': 0,
         'rag_evidence': [],
         'rag_online_requests': 0,
+        'rag_online_diagnostics': [],
         'rag_gate_escalation': False,
         'original_route': None,
     }
@@ -529,6 +533,7 @@ async def run_case(client, settings, case, trial, catalog, *,
                 online=rag_online,
                 client=client if rag_online else None,
                 online_cache=online_cache,
+                diagnostics=row['rag_online_diagnostics'],
             )
             row['rag_hits_count'] = len(evidence)
             row['rag_evidence'] = evidence
