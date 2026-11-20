@@ -122,7 +122,7 @@ def user_prompt(source: str) -> str:
     )
 
 
-async def analyze_one(client, gate, settings, case):
+async def analyze_one(client, gate, settings, case, *, strict_format=False):
     case_id, source, held_out_context = case
     record = {
         'case_id': case_id,
@@ -141,7 +141,15 @@ async def analyze_one(client, gate, settings, case):
         try:
             payload = build_request_payload(
                 model=settings.openai_model_id,
-                prompt=user_prompt(source),
+                prompt=user_prompt(source) + (
+                    '\nFORMAT RETRY: Return exactly the required JSON object with '
+                    'both lexical_inventory and interpretations. Lexical span must '
+                    'be an EXACT CONTIGUOUS substring from the source, or omit it. '
+                    'If there are no genuinely ambiguous terms, lexical_inventory '
+                    'must be []; provide one or more coherent interpretations. '
+                    'No added fields, no markdown, no null for arrays.'
+                    if strict_format else ''
+                ),
                 max_tokens=min(max(settings.openai_max_tokens, 3072),
                                settings.openai_max_tokens_cap),
                 reasoning_effort=settings.openai_reasoning_effort,
