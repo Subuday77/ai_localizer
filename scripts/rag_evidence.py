@@ -126,6 +126,9 @@ def compact_for_model(hits: list[dict], *, limit: int = 12) -> list[dict]:
         if hit.get('definition_source_language'):
             entry['definition_source_language'] = hit['definition_source_language']
             entry['language'] = hit.get('language', 'unknown')
+        if hit.get('lookup_relation'):
+            entry['lookup_relation'] = hit['lookup_relation']
+            entry['derived_from'] = hit['derived_from']
         result.append(entry)
     return result
 
@@ -148,6 +151,46 @@ def get_online_query_terms(source: str, local_hits: list[dict], *,
             key=lambda w: (-len(w), w),
         )
     return ordered[:max_terms]
+
+
+def english_lemma_candidate(term: str) -> str | None:
+    """One conservative *hypothesis* for English -ing verb forms.
+
+    Do not apply English suffix rules to other languages. Both the original
+    surface spelling and this derived candidate remain visible in output.
+    """
+    parts = term.strip().split()
+    if not 1 <= len(parts) <= 3 or not parts[0].isascii():
+        return None
+    first = parts[0].lower()
+    if not re.fullmatch(r'[a-z]{6,}ing', first):
+        return None
+    stem = first[:-3]
+    if len(stem) < 3:
+        return None
+    if len(stem) >= 3 and stem[-1] == stem[-2] and stem[-1] not in 'aeiou':
+        stem = stem[:-1]  # running -> run, stopping -> stop
+    elif stem[-1] in ('v', 'c'):
+        stem += 'e'  # heaving -> heave, dancing -> dance
+    result = ' '.join([stem, *parts[1:]])
+    return result if normalize(result) != normalize(term) else None
+
+
+def needs_english_lemma_retry(status: str, senses: list[dict]) -> bool:
+    """Retry only on 200-without-definitions or documented inflected-form gloss."""
+    if status == 'no_definitions':
+        return True
+    if status != 'found':
+        return False
+    return any(
+        item.get('definition_en', '').casefold().startswith((
+            'present participle of ',
+            'present participle and gerund of ',
+            'gerund and present participle of ',
+            'inflection of ',
+        ))
+        for item in senses
+    )
 
 
 async def fetch_wiktionary_senses(
@@ -269,7 +312,17 @@ async def search_with_optional_online(
         raise ValueError('HTTP client required for online lookups')
     if online_cache is None:
         online_cache = {}
-    for word in get_online_query_terms(source, hits, max_terms=max_online_terms):
+    if not 0 <= max_online_terms <= 2:
+        raise ValueError('Online term-query budget must be 0..2')
+
+    # Budget is for distinct candidate lookups, including cached requests.
+    # A safe lemma fallback consumes the second slot, never a third request.
+    consumed = 0
+
+    async def lookup(word: str, *, relation: str = 'surface',
+                     from_word: str | None = None) -> tuple[list[dict], str]:
+        nonlocal count, consumed
+        consumed += 1
         key = (source_language.split('-')[0].lower(), normalize(word))
         if key not in online_cache:
             status_report = []
@@ -279,26 +332,61 @@ async def search_with_optional_online(
                     status_report=status_report,
                 )
             except (httpx.HTTPError, ValueError, json.JSONDecodeError) as exc:
-                # Optional evidence must never break translation/benchmark.
+                # Optional evidence must not break the benchmark. Do not
+                # retry a network error as if it were a missing dictionary form.
                 online_cache[key] = []
                 status_report = [{
                     'term': word, 'status': 'request_error',
-                    'error_type': type(exc).__name__,
-                    'definitions': 0,
+                    'error_type': type(exc).__name__, 'definitions': 0,
                 }]
             if diagnostics is not None:
-                diagnostics.extend(status_report or [{
-                    'term': word,
-                    'status': ('found' if online_cache[key] else 'no_definitions'),
-                    'definitions': len(online_cache[key]),
-                }])
+                for item in status_report:
+                    detail = dict(item)
+                    if relation != 'surface':
+                        detail['lookup_relation'] = relation
+                        detail['derived_from'] = from_word
+                    diagnostics.append(detail)
+            status = status_report[0]['status'] if status_report else (
+                'found' if online_cache[key] else 'no_definitions'
+            )
             count += 1
-        elif diagnostics is not None:
-            diagnostics.append({
-                'term': word, 'status': 'cached',
-                'definitions': len(online_cache[key]),
-            })
-        hits.extend(online_cache[key])
+        else:
+            status = ('found' if online_cache[key] else 'no_definitions')
+            if diagnostics is not None:
+                item = {
+                    'term': word, 'status': 'cached',
+                    'definitions': len(online_cache[key]),
+                }
+                if relation != 'surface':
+                    item['lookup_relation'] = relation
+                    item['derived_from'] = from_word
+                diagnostics.append(item)
+
+        items = [dict(row) for row in online_cache[key]]
+        if relation != 'surface':
+            for entry in items:
+                entry['lookup_relation'] = relation
+                entry['derived_from'] = from_word
+                # The lemma is a morphological hypothesis, not an exact
+                # lexical match of the original source expression.
+                entry['retrieval_score'] = min(entry['retrieval_score'], 48)
+        return items, status
+
+    for word in get_online_query_terms(source, hits, max_terms=max_online_terms):
+        if consumed >= max_online_terms:
+            break
+        found, status = await lookup(word)
+        hits.extend(found)
+
+        if (consumed < max_online_terms
+                and source_language.lower().split('-')[0] == 'en'
+                and needs_english_lemma_retry(status, found)):
+            lemma = english_lemma_candidate(word)
+            if lemma and normalize(lemma) != normalize(word):
+                derived, _ = await lookup(
+                    lemma, relation='heuristic_lemma', from_word=word,
+                )
+                hits.extend(derived)
     # Prefer exact/multiword curated records, then external definitions.
     hits.sort(key=lambda e: (
         -e['retrieval_score'], -len(e['matched_term']), e['concept_id'],
