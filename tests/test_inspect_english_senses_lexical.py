@@ -47,7 +47,9 @@ def test_lexical_first_prompt_contains_no_hidden_category_or_known_ambiguous_ter
     assert 'head nouns' in SYSTEM_PROMPT
     assert 'not only verbs' in SYSTEM_PROMPT
     assert 'STAGE 1' in SYSTEM_PROMPT and 'STAGE 2' in SYSTEM_PROMPT
-    assert 'no website category' not in SYSTEM_PROMPT.casefold()  # no category value
+    assert all(name not in SYSTEM_PROMPT.casefold() for name in (
+        'electronics', 'railway', 'military', 'music',
+    ))  # no held-out site profile
     for case_id, source, context in CASES + EXTENDED:
         prompt = user_prompt(source)
         assert prompt.endswith(json.dumps(source, ensure_ascii=False))
