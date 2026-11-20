@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "purpose": "Experimental, human-authored concept glossary. NOT authoritative external dictionary evidence. No benchmark gold labels, no source sentences. Not published to contexts DB.",
+  "purpose": "Experimental, human-authored 160-concept lexical RAG glossary; not authoritative dictionary data or benchmark gold. Includes mutually competing word senses across domains.",
   "records": [
     {
       "concept_id": "music_pitch",
@@ -2816,6 +2816,121 @@
         ],
         "ru": [
           "записка"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "wildlife_bear",
+      "domain_id": "wildlife",
+      "definition_en": "Large omnivorous or carnivorous mammal belonging to the family Ursidae.",
+      "terms": {
+        "en": [
+          "bear"
+        ],
+        "de": [
+          "Bär"
+        ],
+        "fr": [
+          "ours"
+        ],
+        "es": [
+          "oso"
+        ],
+        "ru": [
+          "медведь"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "office_pitching",
+      "domain_id": "office_administration",
+      "definition_en": "Persuasive presentation of an idea, proposal or product to win support.",
+      "terms": {
+        "en": [
+          "pitching",
+          "sales pitch",
+          "pitch"
+        ],
+        "de": [
+          "Verkaufsgespräch"
+        ],
+        "fr": [
+          "argumentaire commercial"
+        ],
+        "es": [
+          "presentación comercial"
+        ],
+        "ru": [
+          "презентация идеи"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "film_blockbuster",
+      "domain_id": "film",
+      "definition_en": "Film or entertainment production achieving exceptional audience popularity and commercial success.",
+      "terms": {
+        "en": [
+          "blockbuster"
+        ],
+        "de": [
+          "Kassenschlager"
+        ],
+        "fr": [
+          "film à succès"
+        ],
+        "es": [
+          "éxito de taquilla"
+        ],
+        "ru": [
+          "кассовый хит"
+        ]
+      },
+      "provenance": {
+        "provider": "prototype_original",
+        "license": "original_demo",
+        "source_url": null,
+        "verified": false
+      }
+    },
+    {
+      "concept_id": "pharma_blockbuster",
+      "domain_id": "pharmaceuticals",
+      "definition_en": "Medicinal product generating unusually high annual sales revenue.",
+      "terms": {
+        "en": [
+          "blockbuster",
+          "blockbuster drug"
+        ],
+        "de": [
+          "Blockbuster-Medikament"
+        ],
+        "fr": [
+          "médicament vedette"
+        ],
+        "es": [
+          "medicamento superventas"
+        ],
+        "ru": [
+          "лекарство-блокбастер"
         ]
       },
       "provenance": {
