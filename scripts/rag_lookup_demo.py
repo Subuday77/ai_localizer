@@ -26,10 +26,12 @@ from scripts.rag_evidence import (
 async def lookup(text: str, source_language: str, target_language: str | None,
                  online: bool, limit: int) -> dict:
     index = SmallConceptIndex()
+    diagnostics = []
     async with httpx.AsyncClient() as client:
         hits, requests = await search_with_optional_online(
             text, source_language=source_language, index=index,
             online=online, client=client, limit=limit,
+            diagnostics=diagnostics,
         )
     by_id = {item['concept_id']: item for item in index.records}
     target = target_language.lower().split('-')[0] if target_language else None
@@ -46,6 +48,7 @@ async def lookup(text: str, source_language: str, target_language: str | None,
         'source_concepts': len(index.records),
         'source_file_bytes': index.file_bytes,
         'network_dictionary_requests': requests,
+        'online_lookup_diagnostics': diagnostics,
         'hits': hits,
         'note': (
             'Lexical evidence only: NO final sense selected, NO translation. '
