@@ -26,7 +26,7 @@ def test_test_cases_match_existing_benchmark_and_source_only_prompt():
         prompt = user_prompt(source)
         assert source in prompt
         assert evaluation_context not in prompt.casefold()
-        assert case_id not in prompt
+        assert prompt.endswith(json.dumps(source, ensure_ascii=False))
         assert 'target language' not in prompt.casefold()
     assert 'NOT a translator' in SYSTEM_PROMPT
     assert 'do not choose a best sense' in SYSTEM_PROMPT
