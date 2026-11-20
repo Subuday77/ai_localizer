@@ -13,6 +13,9 @@ from app.contexts.models import Base
 from app.contexts.repository import resolve_context
 from scripts.inspect_context_selector import (
     SYSTEM_PROMPT,
+    extended_cache_path,
+    load_extended_cache,
+    generate_missing_controls,
     REVIEW_TARGETS,
     read_candidates,
     parse_selection,
@@ -234,3 +237,118 @@ def test_extended_control_set_keeps_adversarial_contexts():
     assert controls['literal_note'][1] == 'music'
     assert controls['literal_bus'][1] == 'electronics'
     assert controls['railway_track'][1] == 'railway'
+
+
+def test_extended_generator_schema_retry_and_cache_reuse(tmp_path, monkeypatch):
+    from scripts import inspect_context_selector as selector
+
+    class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+    seen = []
+
+    async def fake_gen(client, gate, settings, case, *, strict_format=False):
+        case_id, source, context_id = case
+        seen.append((case_id, strict_format))
+        error = (
+            'ValueError: Lexical span is not part of the input sentence'
+            if case_id in ('literal_bus', 'railway_track') and not strict_format
+            else None
+        )
+        return {
+            'case_id': case_id, 'source': source,
+            'evaluation_context_not_sent': context_id,
+            'requested_model': 'gpt-6-luna', 'actual_model': 'gpt-6-luna',
+            'http_status': 200, 'error': error,
+            'lexical_inventory': [],
+            'interpretations': [] if error else [{
+                'meaning': 'A complete English interpretation of the sentence.',
+                'kind': 'ordinary',
+                'evidence': 'The source words directly support this meaning.',
+            }],
+        }
+
+    monkeypatch.setattr(selector.httpx, 'AsyncClient', FakeAsyncClient)
+    monkeypatch.setattr(selector, 'generate_lexical_candidates', fake_gen)
+    model = Settings(_env_file=None, openai_api_key='test-only-key')
+    source_path = tmp_path / 'frozen_a.json'
+    source_path.write_text('test source fingerprint', encoding='utf-8')
+    cache = extended_cache_path(source_path)
+    assert cache.parent.name == source_path.parent.name or 'context_selector_candidates_' in cache.name
+    base = read_candidates(_write_fake_frozen_candidates(tmp_path))
+    result = asyncio.run(generate_missing_controls(base, model, cache))
+    assert len(result) == 10
+    assert len(seen) == 6  # four first attempts plus two failed-schema retries
+    assert ('literal_bus', True) in seen and ('railway_track', True) in seen
+    assert cache.is_file()
+    cached, errors = load_extended_cache(cache, 'gpt-6-luna')
+    assert set(cached) == {case[0] for case in EXTENDED}
+    assert errors == {}
+    again = asyncio.run(generate_missing_controls(base, model, cache))
+    assert len(again) == 10 and len(seen) == 6  # zero new A requests
+
+
+def _write_fake_frozen_candidates(tmp_path):
+    path = tmp_path / 'original_lexical.json'
+    path.write_text(json.dumps(fake_candidates()), encoding='utf-8')
+    return path
+
+
+def test_failed_extended_generation_preserves_partial_results(tmp_path, monkeypatch):
+    from scripts import inspect_context_selector as selector
+
+    class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+    failed = {'railway_track'}
+    seen = []
+
+    async def fake_gen(client, gate, settings, case, *, strict_format=False):
+        case_id, source, context_id = case
+        seen.append(case_id)
+        error = 'ValueError: Invalid model output' if case_id in failed else None
+        return {
+            'case_id': case_id, 'source': source,
+            'evaluation_context_not_sent': context_id,
+            'requested_model': 'gpt-6-luna', 'actual_model': 'gpt-6-luna',
+            'http_status': 200, 'error': error,
+            'lexical_inventory': [],
+            'interpretations': [] if error else [{
+                'meaning': 'A coherent interpretation supported by the words.',
+                'kind': 'ordinary', 'evidence': 'Plain English sentence meaning.',
+            }],
+        }
+
+    monkeypatch.setattr(selector.httpx, 'AsyncClient', FakeAsyncClient)
+    monkeypatch.setattr(selector, 'generate_lexical_candidates', fake_gen)
+    model = Settings(_env_file=None, openai_api_key='test-only-key')
+    path = _write_fake_frozen_candidates(tmp_path)
+    cache = extended_cache_path(path)
+    base = read_candidates(path)
+    with pytest.raises(ValueError, match='Successful candidates saved'):
+        asyncio.run(generate_missing_controls(base, model, cache))
+    cached, errors = load_extended_cache(cache, 'gpt-6-luna')
+    assert set(cached) == {'orchestra_conductor', 'literal_note', 'literal_bus'}
+    assert errors['railway_track'].startswith('ValueError')
+    assert seen.count('railway_track') == 2
+    failed.clear()
+    result = asyncio.run(generate_missing_controls(base, model, cache))
+    assert len(result) == 10
+    assert seen.count('railway_track') == 3
+    assert seen.count('literal_bus') == 1
+    cached, errors = load_extended_cache(cache, 'gpt-6-luna')
+    assert len(cached) == 4 and errors == {}
