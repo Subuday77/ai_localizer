@@ -127,7 +127,7 @@ def test_selector_payload_separates_evidence_and_context_and_hides_target(profil
     assert 'railway' not in json.dumps(body['professional_website_context']).lower()
     assert 'transport employee' in prompt
     assert REVIEW_TARGETS['tickets'] not in prompt
-    assert 'choose the best candidate based' in SYSTEM_PROMPT.casefold()
+    assert 'select the best candidate based' in SYSTEM_PROMPT.casefold()
     assert 'do not invent an unusual scenario' in SYSTEM_PROMPT.casefold()
     assert 'translate' in SYSTEM_PROMPT.lower()
 
