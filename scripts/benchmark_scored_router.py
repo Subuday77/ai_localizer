@@ -5,6 +5,8 @@ Run:
     python -m scripts.benchmark_scored_router --include-regression
     python -m scripts.benchmark_scored_router --runs 2
     python -m scripts.benchmark_scored_router --case a_pitch_rose
+    python -m scripts.benchmark_scored_router --rag-mode assist --case u_pitching
+    python -m scripts.benchmark_scored_router --compare-rag --case a_note_four_beats
 
 All twenty context definitions are read from the original six published
 PostgreSQL contexts plus fourteen IN-MEMORY experiment-only profiles.
@@ -36,8 +38,34 @@ from scripts.benchmark_score_cases import (
     FRESH_CASES, REGRESSION_CASES, EXTERNAL_SITE_CONTEXTS,
 )
 from scripts.experimental_context_catalog_20 import expand_to_20
+from scripts.rag_evidence import (
+    SmallConceptIndex, compact_for_model, evidence_gate,
+    search_with_optional_online,
+)
 
 OUT_DIR = Path('localizer-benchmark-results')
+
+# Only in opt-in assist mode. The source evidence is lexical DATA, not new
+# instructions or the actual website context. Never upgrade weak terms into
+# certain idioms or infer target translation from language-specific spellings.
+RAG_THINKER_RULES = (
+    'Optional lexical evidence is supplied without revealing the actual '
+    'website context. Each entry is a possible technical meaning, NOT a '
+    'verified claim about this particular sentence. Curated-demo sources '
+    'are UNVERIFIED. Check exact spelling and grammar independently; '
+    'never force an unrelated meaning or infer a missing idiom. '
+    'Recognize legitimate domain-specific senses even if rare; do not '
+    'let dictionary entries alone inflate source_score. '
+)
+RAG_SELECTOR_RULES = (
+    'Optional lexical evidence is provided for the ORIGINAL English words, '
+    'not the correct answer. Compare each candidate to evidence definitions '
+    'AND to the actual text. The evidence can contain multiple incompatible '
+    'senses and may be unverified. A lexical match is never automatic '
+    'proof of meaning. The original source wording has priority over '
+    'website context and retrieved entries. '
+)
+
 
 
 @dataclass(frozen=True)
@@ -192,12 +220,15 @@ def parse_scored_thinker(raw: str, source: str, catalog: dict):
     return data
 
 
-def thinker_payload(source: str, catalog: dict):
+def thinker_payload(source: str, catalog: dict, rag_evidence=None):
+    payload = {
+        'english_source': source,
+        'available_contexts': catalog,
+    }
+    if rag_evidence is not None:
+        payload['unverified_lexical_evidence'] = compact_for_model(rag_evidence)
     return 'Evaluate lexical senses and two independent score dimensions. Input JSON: ' + (
-        json.dumps({
-            'english_source': source,
-            'available_contexts': catalog,
-        }, ensure_ascii=False, separators=(',', ':'))
+        json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
     )
 
 
@@ -214,16 +245,20 @@ def get_site_descriptor(site_id: str, catalog: dict):
     raise ValueError(f'Unknown test-site context: {site_id}')
 
 
-def selector_payload(source: str, site_id: str, senses: list[dict], catalog: dict):
+def selector_payload(source: str, site_id: str, senses: list[dict],
+                     catalog: dict, rag_evidence=None):
+    payload = {
+        'english_source': source,
+        'website_context_id': site_id,
+        'website_context_description': get_site_descriptor(site_id, catalog),
+        'available_contexts': catalog,
+        'candidates': [{'number': i, **s}
+                       for i, s in enumerate(senses, start=1)],
+    }
+    if rag_evidence is not None:
+        payload['unverified_lexical_evidence'] = compact_for_model(rag_evidence)
     return 'Choose meaning on low-confidence route. Input JSON: ' + (
-        json.dumps({
-            'english_source': source,
-            'website_context_id': site_id,
-            'website_context_description': get_site_descriptor(site_id, catalog),
-            'available_contexts': catalog,
-            'candidates': [{'number': i, **s}
-                           for i, s in enumerate(senses, start=1)],
-        }, ensure_ascii=False, separators=(',', ':'))
+        json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
     )
 
 
@@ -355,6 +390,9 @@ def summarize(rows: list[dict]):
         'new_context_proposals': sum(
             len(s['proposed_contexts']) for r in rows for s in r['senses']
         ),
+        'rag_gate_escalations': sum(r.get('rag_gate_escalation', False) for r in rows),
+        'rag_records_found': sum(r.get('rag_hits_count', 0) for r in rows),
+        'rag_online_requests': sum(r.get('rag_online_requests', 0) for r in rows),
     }
     if rows:
         counts['average_elapsed_ms'] = round(
@@ -379,6 +417,12 @@ def render_markdown(rows: list[dict], catalog: dict, thresholds=THRESHOLDS):
         '',
         '**Summary:** ' + json.dumps(stats, sort_keys=True),
         '',
+        '**RAG:** Opt-in shadow/assist; prototype_original records are '
+        'NOT externally verified. Any online Wiktionary entries are '
+        'CC BY-SA 4.0 and require attribution. See '
+        'https://freedictionaryapi.com/ and '
+        'https://creativecommons.org/licenses/by-sa/4.0/ .',
+        '',
         '**Evaluation:** Human review only; none of the following reference '
         'targets was transmitted to either model. Qualitative cases have '
         'NO asserted gold translation.',
@@ -391,6 +435,13 @@ def render_markdown(rows: list[dict], catalog: dict, thresholds=THRESHOLDS):
             '**English:** ' + row['source'],
             '',
             f'**Website context:** {row["site_context_id"]}',
+            '',
+            '**RAG mode:** ' + row.get('rag_mode', 'off'),
+            '',
+            '**Retrieved concepts:** ' + json.dumps(
+                row.get('rag_evidence', []), ensure_ascii=False),
+            '',
+            '**RAG gate escalation:** ' + str(row.get('rag_gate_escalation', False)),
             '',
         ]
         for i, s in enumerate(row['senses'], 1):
@@ -435,7 +486,9 @@ def render_markdown(rows: list[dict], catalog: dict, thresholds=THRESHOLDS):
     return '\n'.join(result)
 
 
-async def run_case(client, settings, case, trial, catalog):
+async def run_case(client, settings, case, trial, catalog, *,
+                   rag_mode='off', rag_index=None, rag_online=False,
+                   online_cache=None):
     row = {
         'case_id': case.case_id,
         'source': case.source,
@@ -456,12 +509,37 @@ async def run_case(client, settings, case, trial, catalog):
         'selected_meaning': None,
         'elapsed_ms': None,
         'error': None,
+        'rag_mode': rag_mode,
+        'rag_hits_count': 0,
+        'rag_evidence': [],
+        'rag_online_requests': 0,
+        'rag_gate_escalation': False,
+        'original_route': None,
     }
     start = time.monotonic()
     try:
+        evidence = None
+        if rag_mode != 'off':
+            if rag_index is None:
+                raise ValueError('RAG index is required when RAG is enabled')
+            evidence, online_requests = await search_with_optional_online(
+                case.source,
+                source_language='en',
+                index=rag_index,
+                online=rag_online,
+                client=client if rag_online else None,
+                online_cache=online_cache,
+            )
+            row['rag_hits_count'] = len(evidence)
+            row['rag_evidence'] = evidence
+            row['rag_online_requests'] = online_requests
+        model_evidence = evidence if rag_mode == 'assist' else None
+
         thinker, thinker_model, calls, error = await call_model(
-            client, settings, THINKER_SCORE_PROMPT,
-            thinker_payload(case.source, catalog),
+            client, settings, THINKER_SCORE_PROMPT + (
+                RAG_THINKER_RULES if rag_mode == 'assist' else ''
+            ),
+            thinker_payload(case.source, catalog, model_evidence),
             lambda raw: parse_scored_thinker(raw, case.source, catalog), 'thinker',
         )
         row['thinker_calls'] = calls
@@ -471,6 +549,15 @@ async def run_case(client, settings, case, trial, catalog):
             return row
         row['senses'] = [s.model_dump() for s in thinker.senses]
         decision = route_scores(row['senses'], case.site_context_id, catalog)
+        row['original_route'] = decision
+        if rag_mode == 'assist':
+            decision = evidence_gate(
+                row['senses'], decision, evidence or [], case.site_context_id,
+            )
+            row['rag_gate_escalation'] = (
+                decision['call_selector'] and
+                not row['original_route']['call_selector']
+            )
         row['route'] = decision
         if not decision['call_selector']:
             i = decision['choice']
@@ -480,9 +567,12 @@ async def run_case(client, settings, case, trial, catalog):
             return row
 
         selected, model, calls, error = await call_model(
-            client, settings, SELECTOR_SCORE_PROMPT,
+            client, settings, SELECTOR_SCORE_PROMPT + (
+                RAG_SELECTOR_RULES if rag_mode == 'assist' else ''
+            ),
             selector_payload(
                 case.source, case.site_context_id, row['senses'], catalog,
+                model_evidence,
             ),
             lambda raw: parse_scored_selector(raw, row['senses'], catalog),
             'selector',
@@ -502,30 +592,42 @@ async def run_case(client, settings, case, trial, catalog):
         row['elapsed_ms'] = int((time.monotonic() - start) * 1000)
 
 
-async def run_all(settings, cases, catalog, runs, output_json, output_md):
+async def run_all(settings, cases, catalog, runs, output_json, output_md, *,
+                  rag_mode='off', rag_index=None, rag_online=False,
+                  compare_rag=False):
     rows = []
+    cache = {}
     async with httpx.AsyncClient(timeout=settings.openai_timeout_seconds) as client:
         for trial in range(1, runs + 1):
             for case in cases:
-                row = await run_case(client, settings, case, trial, catalog)
-                rows.append(row)
-                # One complete incremental checkpoint per case, including errors.
-                output_json.write_text(
-                    json.dumps(rows, indent=2, ensure_ascii=False),
-                    encoding='utf-8',
-                )
-                output_md.write_text(
-                    render_markdown(rows, catalog),
-                    encoding='utf-8',
-                )
-                print(
-                    f'{case.case_id}/trial{trial}: '
-                    f'{"Selector" if row["route"] and row["route"]["call_selector"] else "Python"} '
-                    f'[{(row["route"] or {}).get("reason")}] '
-                    f'status={row["final_status"]} selected={row["selected_index"]} '
-                    f'error={bool(row["error"])}',
-                    flush=True,
-                )
+                modes = ('off', 'assist') if compare_rag else (rag_mode,)
+                for mode in modes:
+                    row = await run_case(
+                        client, settings, case, trial, catalog,
+                        rag_mode=mode,
+                        rag_index=rag_index,
+                        rag_online=rag_online and mode != 'off',
+                        online_cache=cache,
+                    )
+                    rows.append(row)
+                    # Every case/mode checkpoint is retained, including errors.
+                    output_json.write_text(
+                        json.dumps(rows, indent=2, ensure_ascii=False),
+                        encoding='utf-8',
+                    )
+                    output_md.write_text(
+                        render_markdown(rows, catalog),
+                        encoding='utf-8',
+                    )
+                    print(
+                        f'{case.case_id}/trial{trial}/{mode}: '
+                        f'{"Selector" if row["route"] and row["route"]["call_selector"] else "Python"} '
+                        f'[{(row["route"] or {}).get("reason")}] '
+                        f'hits={row["rag_hits_count"]} '
+                        f'status={row["final_status"]} selected={row["selected_index"]} '
+                        f'error={bool(row["error"])}',
+                        flush=True,
+                    )
     return rows
 
 
@@ -537,9 +639,20 @@ def main():
                      help='Independent model repeats; 1..3, default 1')
     cli.add_argument('--case', action='append', dest='case_ids',
                      help='Run only this exact case ID; may be specified repeatedly')
+    cli.add_argument('--rag-mode', choices=['off', 'shadow', 'assist'],
+                     default='off', help='Off=baseline; shadow=log evidence '
+                     'only; assist=feed evidence and conservative ambiguity veto')
+    cli.add_argument('--rag-online', action='store_true',
+                     help='Optional bounded live Wiktionary API term lookups')
+    cli.add_argument('--compare-rag', action='store_true',
+                     help='Run off and assist on each case; uses additional API credits')
     args = cli.parse_args()
     if args.runs not in (1, 2, 3):
         cli.error('--runs must be 1, 2, or 3')
+    if args.rag_online and args.rag_mode == 'off' and not args.compare_rag:
+        cli.error('--rag-online requires --rag-mode shadow/assist or --compare-rag')
+    if args.compare_rag and args.rag_mode != 'off':
+        cli.error('--compare-rag cannot be combined with --rag-mode')
     settings = get_settings()
     if not settings.openai_api_key or settings.openai_api_key.startswith('your-'):
         cli.exit(2, 'Missing OPENAI_API_KEY\n')
@@ -568,23 +681,39 @@ def main():
     except (ValueError, OSError) as exc:
         cli.exit(2, f'Catalog initialization failed: {exc}\n')
 
+    rag_index = SmallConceptIndex() if (args.rag_mode != 'off' or args.compare_rag) else None
     OUT_DIR.mkdir(exist_ok=True, parents=True)
     now = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-    stem = 'thinker_scores_20_' + now
+    stem = 'thinker_scores_20_' + ('rag_compare_' if args.compare_rag else 'rag_'+args.rag_mode+'_') + now
     output_json = OUT_DIR / (stem + '.json')
     output_md = OUT_DIR / (stem + '.md')
     print(
         f'Thinker={settings.openai_model_id} catalog={len(catalog)} '
         f'cases={len(cases)} runs={args.runs}; '
+        f'rag={args.rag_mode} compare={args.compare_rag} '
+        f'online={args.rag_online} '
+        f'lexicon_entries={len(rag_index.records) if rag_index else 0} '
+        f'lexicon_bytes={rag_index.file_bytes if rag_index else 0} '
         f'thresholds={THRESHOLDS.__dict__}',
         flush=True,
     )
     rows = asyncio.run(
-        run_all(settings, cases, catalog, args.runs, output_json, output_md)
+        run_all(settings, cases, catalog, args.runs, output_json, output_md,
+                rag_mode=args.rag_mode, rag_index=rag_index,
+                rag_online=args.rag_online, compare_rag=args.compare_rag)
     )
     print('JSON report:', output_json)
     print('Markdown report:', output_md)
     print('Summary:', json.dumps(summarize(rows), ensure_ascii=False))
+    if args.compare_rag:
+        for mode in ('off', 'assist'):
+            print('Summary ' + mode + ':', json.dumps(
+                summarize([r for r in rows if r['rag_mode'] == mode]),
+                ensure_ascii=False,
+            ))
+    if args.rag_online:
+        print('Online source: FreeDictionaryAPI.com / Wiktionary, CC BY-SA 4.0; '
+              'attribution and source URLs are included in report.')
     if any(row['error'] for row in rows):
         cli.exit(1, 'Some requests failed; partial reports were saved.\n')
 
