@@ -76,7 +76,15 @@ The API at https://freedictionaryapi.com/ is backed by Wiktionary and
 documents individual-term lookups in many languages. The prototype sends
 at most two short dictionary TERM queries per source string, never the entire
 source sentence; limits each response to 128 KiB and returns at most five
-definitions. An in-memory cache avoids duplicate lookups WITHIN ONE RUN;
+definitions per query. For English only, a 200 response with no definitions,
+or an inflected-form definition like "present participle and gerund of pitch",
+can trigger a SECOND query with a conservative, unverified lemma guess:
+"heaving down" -> "heave down", "pitching" -> "pitch". This consumes
+the existing two-query budget, never adds a third. Both the original and
+guessed forms remain visible, marked lookup_relation=heuristic_lemma.
+Other source languages are left untouched rather than applying English
+suffix rules to German, French, Spanish or Russian.
+An in-memory cache avoids duplicate lookups WITHIN ONE RUN;
 it does not persist across runs or save external data in PostgreSQL.
 Network/parse errors become an empty optional evidence set rather than
 failing the localizer. Do not opt into external requests for confidential
@@ -102,3 +110,9 @@ some inflections/idioms; evidence can be incomplete or wrong. No corpus is
 bulk downloaded. A future PostgreSQL store should be independently versioned,
 track per-record provenance and licensing, and not alter the fixed context
 catalog until manually approved and benchmarked.
+
+A 200 response with no usable dictionary senses is logged as
+no_definitions, which is not equivalent to a network error or proof that
+the expression does not exist. The live API can return definitions for
+individual verbs but not specialized multiword entries, so a lemma
+fallback is only an additional lexical clue, not validation of an idiom.
