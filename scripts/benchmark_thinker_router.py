@@ -185,6 +185,8 @@ def parse_selector(raw: str, count: int, catalog: dict,
     names = [m.proposed_name for m in result.context_mappings]
     if len(names) != len(set(names)) or set(names) - proposed_names:
         raise ValueError('Selector mappings refer to unrequested proposals')
+    if set(names) != proposed_names:
+        raise ValueError('Selector must resolve every proposed context')
     for mapping in result.context_mappings:
         if (len(set(mapping.nearest_context_ids)) !=
                 len(mapping.nearest_context_ids)):
