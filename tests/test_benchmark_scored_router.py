@@ -161,7 +161,7 @@ def test_numeric_router_branches_are_independent_of_text(catalog_fixture):
             'reason': 'clear_context_score_lead',
         }
 
-    assert route_scores(senses(90, 65), 'electronics', catalog)['reason'] == \
+    assert route_scores(senses(92, 60), 'electronics', catalog)['reason'] == \
         'decisive_source_context_conflict'
 
     # An unusually strong source clue can override an irrelevant site.
@@ -178,7 +178,7 @@ def test_numeric_router_branches_are_independent_of_text(catalog_fixture):
     assert route_scores(a, 'electronics', catalog)['reason'] == \
         'context_score_tie'
 
-    a = senses(68, 88)
+    a = senses(88, 68)
     assert route_scores(a, 'electronics', catalog)['reason'] == \
         'competing_source_evidence'
 
