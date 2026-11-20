@@ -4,6 +4,7 @@ Run from the AI Localizer repo root:
     python -m scripts.benchmark_thinker_router
     python -m scripts.benchmark_thinker_router --base-only
     python -m scripts.benchmark_thinker_router --runs 3
+    python -m scripts.benchmark_thinker_router --catalog expanded20
 
 Requires OPENAI_API_KEY and LOCALIZER_DATABASE_URL in the existing .env.
 Reads ONLY published PostgreSQL contexts; never inserts new ones. Does not
@@ -34,8 +35,37 @@ from app.contexts.repository import (
 from app.services.openai import _load_model_json, build_request_payload
 from scripts.inspect_english_senses import CASES, EXTENDED
 from scripts.inspect_context_selector import REVIEW_TARGETS
+from scripts.experimental_context_catalog_20 import expand_to_20
 
 OUT_DIR = Path('localizer-benchmark-results')
+
+# These experiment-only instructions intentionally do not change the original
+# six-context baseline prompt. No example sentence or expected answer is used.
+EXPANDED20_THINKER_RULES = (
+    'IMPORTANT CONTEXT-MATCHING PROCEDURE FOR THIS EXPERIMENT: for each '
+    'distinct English meaning, first examine ALL entries in the supplied '
+    'context dictionary and select the matching existing IDs by meaning. '
+    'Only propose a new context if NONE of the supplied entries adequately '
+    'covers the meaning. A less specific existing domain still counts as '
+    'adequate when its scope genuinely includes the subject. If any '
+    'context_ids are assigned to a meaning, proposed_contexts MUST be []. '
+    'If no listed context is adequate, return context_ids=[] and describe '
+    'the missing professional context under proposed_contexts. '
+    'Do not invent new IDs or propose narrower synonyms of existing contexts. '
+    'Keep different established meanings of an ambiguous source head word '
+    'as separate WHOLE-SENTENCE interpretations; never use a vague sentence '
+    'paraphrase that merges incompatible meanings just because they share a '
+    'verb. The supplied context dictionary is reference vocabulary, not '
+    'a reason to discard out-of-domain meanings or to change source_fit. '
+)
+
+
+def expanded_catalog(catalog: dict) -> bool:
+    return any(item.get('experiment_only') is True for item in catalog.values())
+
+
+def thinker_prompt_for_catalog(catalog: dict) -> str:
+    return THINKER_PROMPT + (EXPANDED20_THINKER_RULES if expanded_catalog(catalog) else '')
 
 THINKER_PROMPT = (
     'You are the Thinker, an English-language semantic lexicographer, NOT a '
@@ -168,6 +198,10 @@ def parse_thinker(raw: str, catalog: dict) -> ThinkerResponse:
     for sense in result.senses:
         if len(sense.context_ids) != len(set(sense.context_ids)):
             raise ValueError('Duplicate context IDs')
+        if expanded_catalog(catalog) and sense.context_ids and sense.proposed_contexts:
+            raise ValueError(
+                'A known matching context excludes proposals for the same meaning'
+            )
         unknown = set(sense.context_ids) - set(catalog)
         if unknown:
             raise ValueError(
@@ -341,6 +375,8 @@ async def analyze_case(client, gate, settings, case, catalog: dict, trial: int):
     case_id, source, site_context_id = case
     row = {
         'case_id': case_id, 'trial': trial, 'source': source,
+        'catalog_size': len(catalog),
+        'catalog_mode': 'expanded20' if expanded_catalog(catalog) else 'published',
         'site_context_id': site_context_id,
         'site_context_version': catalog[site_context_id]['version'],
         'thinker_model': None, 'thinker_attempts': 0,
@@ -355,7 +391,7 @@ async def analyze_case(client, gate, settings, case, catalog: dict, trial: int):
         try:
             # The selected website context is NEVER passed to Thinker.
             thinker, thinker_model, tries, error = await call_model(
-                client, settings, THINKER_PROMPT,
+                client, settings, thinker_prompt_for_catalog(catalog),
                 thinker_input(source, catalog),
                 lambda raw: parse_thinker(raw, catalog), 'thinker',
             )
@@ -425,6 +461,14 @@ def summary(rows: list[dict]) -> dict:
         'actual_openai_calls': sum(
             row['thinker_attempts'] + row['selector_attempts'] for row in rows
         ),
+        'cases_with_new_contexts': sum(
+            any(sense['proposed_contexts'] for sense in row['senses'])
+            for row in rows
+        ),
+        'new_context_proposals': sum(
+            len(sense['proposed_contexts'])
+            for row in rows for sense in row['senses']
+        ),
     }
 
 
@@ -444,12 +488,15 @@ def report_markdown(rows: list[dict], catalog: dict) -> str:
         f'**Selector selected:** {stats["selector_selected"]} | '
         f'**Unresolved:** {stats["unresolved"]} | '
         f'**Errors:** {stats["errors"]} | '
-        f'**Total model calls:** {stats["actual_openai_calls"]}',
+        f'**Total model calls:** {stats["actual_openai_calls"]} | '
+        f'**Cases proposing new contexts:** {stats["cases_with_new_contexts"]} | '
+        f'**New context proposals:** {stats["new_context_proposals"]}',
         '',
         '**Context catalog:** ' + ', '.join(
             f'{key}@v{value["version"]}' for key, value in catalog.items()
         ),
         '',
+        'Experiment-only context definitions are memory-only; no PostgreSQL writes.',
         'All semantic outcomes require human review. API success is not correctness.',
         '',
     ]
@@ -545,6 +592,9 @@ async def run_experiment(settings, cases, catalog, runs, output_json, output_md)
 
 def main():
     cli = argparse.ArgumentParser(description=__doc__)
+    cli.add_argument('--catalog', choices=('published', 'expanded20'),
+                     default='published',
+                     help='Use only published DB profiles (baseline) or 20 in-memory categories')
     cli.add_argument('--base-only', action='store_true',
                      help='Use six base cases instead of all ten controls')
     cli.add_argument('--runs', type=int, default=1,
@@ -560,6 +610,8 @@ def main():
         cli.exit(2, 'Missing LOCALIZER_DATABASE_URL in project .env\n')
     try:
         catalog = load_catalog(settings)
+        if args.catalog == 'expanded20':
+            catalog = expand_to_20(catalog)
         cases = CASES if args.base_only else CASES + EXTENDED
         missing = {entry[2] for entry in cases} - set(catalog)
         if missing:
@@ -569,11 +621,11 @@ def main():
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-    basename = f'thinker_router_v1_{stamp}'
+    basename = f'thinker_router_{args.catalog}_{stamp}'
     output_json = OUT_DIR / f'{basename}.json'
     output_md = OUT_DIR / f'{basename}.md'
     print(
-        f'Model={settings.openai_model_id} catalog={len(catalog)} '
+        f'Model={settings.openai_model_id} catalog={args.catalog} ({len(catalog)} IDs) '
         f'cases={len(cases)} runs={args.runs}',
         flush=True,
     )
