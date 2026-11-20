@@ -29,9 +29,9 @@ def test_test_cases_match_existing_benchmark_and_source_only_prompt():
         assert prompt.endswith(json.dumps(source, ensure_ascii=False))
         assert 'target language' not in prompt.casefold()
     assert 'NOT a translator' in SYSTEM_PROMPT
-    assert 'do not choose a best sense' in SYSTEM_PROMPT
-    assert 'one meaning' in SYSTEM_PROMPT
-    assert 'up to five' in SYSTEM_PROMPT
+    assert 'do not choose a best sense' in SYSTEM_PROMPT.casefold()
+    assert 'return only that meaning' in SYSTEM_PROMPT.casefold()
+    assert 'up to five' in SYSTEM_PROMPT.casefold()
 
 
 def test_parser_validates_distinct_structured_english_meanings():
