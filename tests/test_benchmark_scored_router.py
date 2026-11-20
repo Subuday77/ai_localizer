@@ -20,7 +20,8 @@ from scripts.benchmark_score_cases import (
 )
 from scripts.benchmark_scored_router import (
     THRESHOLDS, THINKER_SCORE_PROMPT, SELECTOR_SCORE_PROMPT,
-    parse_scored_thinker, thinker_payload, selector_payload, route_scores,
+    parse_scored_thinker, parse_scored_selector, thinker_payload,
+    selector_payload, route_scores,
     summarize, render_markdown, run_case,
 )
 
@@ -345,3 +346,74 @@ def test_retry_diagnostics_and_error_preservation(catalog_fixture):
     assert row['thinker_calls'] == 2
     assert row['selected_index'] is None
     assert summarize([row])['errors'] == 1
+
+
+def test_unselected_new_context_does_not_block_selector(catalog_fixture):
+    _, catalog, _ = catalog_fixture
+    # A model knows that an aircraft-pitch sense might need an Aviation
+    # domain, but the actual website is music: no aviation mapping needed.
+    candidates = [
+        {
+            'meaning': 'The pitch of a musical note increased.',
+            'term_senses': [],
+            'source_score': 70,
+            'source_evidence': 'Music can have a rising pitch.',
+            'context_scores': {'music': 94},
+            'proposed_contexts': [],
+        },
+        {
+            'meaning': 'The aircraft changed nose-up orientation.',
+            'term_senses': [],
+            'source_score': 58,
+            'source_evidence': 'Airplane pitch is a type of rotation.',
+            'context_scores': {},
+            'proposed_contexts': [{
+                'name': 'Aviation',
+                'description': 'Aircraft flight and operation.',
+                'reason': 'No domain in the supplied catalog covers aircraft.',
+            }],
+        },
+    ]
+    choice_music = {
+        'status': 'selected',
+        'choice': 1,
+        'basis': 'context_tiebreak',
+        'reason': 'The music website resolves a musical pitch.',
+        'context_mappings': [],
+    }
+    selected = parse_scored_selector(json.dumps(choice_music), candidates, catalog)
+    assert selected.choice == 1
+    assert selected.context_mappings == []
+
+    # A chosen unknown domain still needs explicit mapping (possibly []).
+    choice_aviation = {**choice_music, 'choice': 2}
+    with pytest.raises(ValueError, match='selected meaning'):
+        parse_scored_selector(json.dumps(choice_aviation), candidates, catalog)
+    choice_aviation['context_mappings'] = [{
+        'proposed_name': 'Aviation',
+        'nearest_context_ids': [],
+        'reason': 'The known catalog does not cover aviation.',
+    }]
+    assert parse_scored_selector(
+        json.dumps(choice_aviation), candidates, catalog,
+    ).choice == 2
+
+    invalid = {**choice_music, 'context_mappings': [{
+        'proposed_name': 'Aviation',
+        'nearest_context_ids': ['fictional_domain'],
+        'reason': 'A fabricated domain.',
+    }]}
+    with pytest.raises(ValueError, match='invented'):
+        parse_scored_selector(json.dumps(invalid), candidates, catalog)
+
+
+def test_selected_scored_nonexistent_candidate_rejected(catalog_fixture):
+    _, catalog, _ = catalog_fixture
+    response = {
+        'status': 'selected', 'choice': 3,
+        'basis': 'context_tiebreak',
+        'reason': 'A model chose an out-of-range candidate.',
+        'context_mappings': [],
+    }
+    with pytest.raises(ValueError, match='nonexistent'):
+        parse_scored_selector(json.dumps(response), senses(), catalog)
