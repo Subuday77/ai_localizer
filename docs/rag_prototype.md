@@ -5,7 +5,7 @@ Not enabled on public translation routes, not a production migration, not deploy
 
 ## Concept-first, language-neutral model
 
-Bundled data: data/rag_demo_concepts.json. There are 156 English descriptions of
+Bundled data: data/rag_demo_concepts.json. There are 160 English descriptions of
 domain-specific concepts, plus term variants in five languages (English,
 German, French, Spanish, Russian) where known. The concept, its professional
 domain and term spellings are independent of the target language. Missing
