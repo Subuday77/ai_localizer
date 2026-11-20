@@ -1,7 +1,7 @@
 """Small, multilingual, concept-first lexical evidence index for RAG experiments.
 
 No database migration, crawler or large dictionary download. The bundled
-157-ish demo concepts are independently authored and marked UNVERIFIED:
+160 demo concepts are independently authored and marked UNVERIFIED:
 they provide lexical hypotheses, not validated dictionary authority.
 
 Local retrieval supports arbitrary language codes when the record contains
@@ -117,13 +117,17 @@ class SmallConceptIndex:
 
 def compact_for_model(hits: list[dict], *, limit: int = 12) -> list[dict]:
     """No target-language equivalences or gold labels enter model prompts."""
-    return [
-        {key: hit[key] for key in (
+    result = []
+    for hit in hits[:limit]:
+        entry = {key: hit[key] for key in (
             'concept_id', 'matched_term', 'domain_id', 'definition_en',
             'provenance',
         )}
-        for hit in hits[:limit]
-    ]
+        if hit.get('definition_source_language'):
+            entry['definition_source_language'] = hit['definition_source_language']
+            entry['language'] = hit.get('language', 'unknown')
+        result.append(entry)
+    return result
 
 
 def get_online_query_terms(source: str, local_hits: list[dict], *,
@@ -212,6 +216,7 @@ async def fetch_wiktionary_senses(
                 'domain_id': 'unclassified',
                 'definition_en': description if lang == 'en' else '',
                 'definition_source_language': description if lang != 'en' else None,
+                'language': lang,
                 'retrieval_score': 52,
                 'provenance': {
                     'provider': SOURCE_LABEL,
