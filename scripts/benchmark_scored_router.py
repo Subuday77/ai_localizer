@@ -90,7 +90,7 @@ THINKER_SCORE_PROMPT = (
     'with English name, description, reason. Do not mix high-scored catalog '
     'IDs with a new proposal for the SAME sense. '
     'Never let a catalog entry raise source_score or eliminate a valid '
-    'out-of-catalog reading. Never use the site's actual domain; you do not '
+    "out-of-catalog reading. Never use the site's actual domain; you do not "
     'know it. No hidden test answers are supplied. '
     'Reply with JSON ONLY in this exact form, all fields required: '
     '{"senses":[{"meaning":"explicit English whole-text paraphrase",'
