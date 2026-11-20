@@ -163,7 +163,9 @@ def english_lemma_candidate(term: str) -> str | None:
     if not 1 <= len(parts) <= 3 or not parts[0].isascii():
         return None
     first = parts[0].lower()
-    if not re.fullmatch(r'[a-z]{6,}ing', first):
+    if first in {'something', 'nothing', 'anything', 'everything', 'during'}:
+        return None
+    if not re.fullmatch(r'[a-z]{3,}ing', first):
         return None
     stem = first[:-3]
     if len(stem) < 3:
